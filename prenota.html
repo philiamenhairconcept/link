@@ -66,15 +66,28 @@
 
     <p class="footer-msg">Problemi con il calendario? Clicca sul tasto dorato in alto.</p>
 
-    <script>
-        // Ascolta il successo della prenotazione per il redirect
+       <script>
+        // Sensore potenziato per intercettare la conferma di Cal.com
         window.addEventListener("message", function(e) {
-            if (e.data.action === "bookingSuccessful") {
+            
+            // Logghiamo per sicurezza (utile per il debug)
+            console.log("Evento ricevuto:", e.data);
+
+            // Verifichiamo se il messaggio arriva da Cal.com
+            // Alcune versioni inviano l'oggetto action direttamente, altre dentro un sotto-oggetto
+            const isCalEvent = e.data && (e.data.origin === "Cal" || e.data.source === "cal");
+            const isSuccess = e.data.action === "bookingSuccessful" || e.data.action === "successfulBooking";
+
+            if (isSuccess) {
+                console.log("Prenotazione rilevata! Reindirizzo...");
+                
+                // Aspettiamo un secondo per far vedere la conferma di Cal
                 setTimeout(() => {
+                    // Usiamo un percorso assoluto per evitare errori di cartella
                     window.location.href = "index.html";
                 }, 1500);
             }
-        });
+        }, false);
     </script>
 </body>
 </html>
