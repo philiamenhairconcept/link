@@ -53,7 +53,7 @@
         const db = firebase.firestore();
         const appId = "philia-v2-production";
 
-        // --- LISTA COMPLETA SERVIZI (20 SERVIZI) ---
+        // --- LISTA COMPLETA SERVIZI ---
         const MASTER_SERVICES = [
             { id: 'perm_ricci', name: 'Permanente Ricci', price: 30, duration: 60 },
             { id: 'comp_scrub', name: 'Completo + Scrub Viso', price: 30, duration: 45 },
@@ -108,7 +108,6 @@
 
                 const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
 
-                // Sincronizzazione Orari Globali
                 basePath.collection('config').doc('schedule').onSnapshot(doc => {
                     if (doc.exists) setSettings(doc.data());
                     else {
@@ -124,13 +123,11 @@
                     }
                 });
 
-                // Sincronizzazione Barbieri
                 basePath.collection('barbers').onSnapshot(snap => {
                     let data = snap.docs.map(d => ({id: d.id, ...d.data()}));
                     setBarbers(data.sort((a,b) => a.order - b.order));
                 });
 
-                // Sincronizzazione Prenotazioni
                 basePath.collection('bookings').onSnapshot(snap => {
                     setBookings(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 });
@@ -342,7 +339,7 @@
                                                             </div>
                                                             <p className="font-bold uppercase text-sm mt-1">{b.customerName}</p>
                                                             <p className="text-green-500 text-[10px] font-black">{b.customerPhone}</p>
-                                                            <p className="text-white/20 text-[8px] uppercase mt-1 leading-none">{b.serviceName}</p>
+                                                            <p className="text-white/20 text-[8px] uppercase font-bold mt-1 leading-none">{b.serviceName}</p>
                                                         </div>
                                                     ))}
                                                     {bookings.filter(b => b.barberId === barber.id).length === 0 && <p className="text-center py-10 opacity-10 italic uppercase text-[10px]">Vuoto</p>}
@@ -351,7 +348,7 @@
                                         ))}
                                     </div>
                                 ) : (
-                                    /* VISTA PERSONALE COLLABORATORE (Tasto Fatto Rimosso come richiesto) */
+                                    /* VISTA PERSONALE COLLABORATORE (Tasto Fatto rimosso per evitare errori) */
                                     <div className="space-y-4 max-w-2xl mx-auto">
                                         {bookings.filter(b => b.barberName === adminUser).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).map(b => (
                                             <div key={b.id} className="philia-bg p-6 rounded-[30px] border border-white/5 shadow-xl">
