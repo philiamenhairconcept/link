@@ -80,7 +80,7 @@
         const DAYS_NAME = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
 
         function App() {
-            // Identità Cliente salvata localmente per comodità, ma validata via Cloud
+            // Identità Cliente
             const [clientPhone, setClientPhone] = useState(localStorage.getItem('philia_phone') || "");
             const [clientName, setClientName] = useState(localStorage.getItem('philia_name') || "");
             const [isIdentified, setIsIdentified] = useState(!!localStorage.getItem('philia_phone'));
@@ -124,13 +124,13 @@
                     }
                 });
 
-                // Sincronizzazione Barbieri (che ora contengono anche orari personali)
+                // Sincronizzazione Barbieri
                 basePath.collection('barbers').onSnapshot(snap => {
                     let data = snap.docs.map(d => ({id: d.id, ...d.data()}));
                     setBarbers(data.sort((a,b) => a.order - b.order));
                 });
 
-                // Sincronizzazione Tutte le Prenotazioni
+                // Sincronizzazione Prenotazioni
                 basePath.collection('bookings').onSnapshot(snap => {
                     setBookings(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 });
@@ -169,7 +169,6 @@
                 const d = new Date(selectedDate);
                 const day = d.getDay();
                 
-                // Priorità all'orario personale del barbiere, altrimenti orario globale
                 const hours = (selectedBarber.personalSchedule && selectedBarber.personalSchedule[day])
                     ? selectedBarber.personalSchedule[day]
                     : settings.openingHours[day];
@@ -187,7 +186,6 @@
                     const end = new Date(`2000-01-01T${e}:00`);
                     while (cur <= new Date(end.getTime() - 30 * 60000)) {
                         const timeStr = cur.toTimeString().substring(0, 5);
-                        // Filtro orari passati se stiamo guardando oggi
                         if (selectedDate !== todayStr || timeStr > currentHourMin) {
                             slots.push(timeStr);
                         }
@@ -330,7 +328,7 @@
                                 </div>
                                 
                                 {adminUser === 'SIMONE' ? (
-                                    /* VISTA MASTER: 3 COLONNE */
+                                    /* VISTA MASTER PER SIMONE: 3 COLONNE */
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                         {barbers.map(barber => (
                                             <div key={barber.id} className="philia-bg p-5 rounded-[30px] border border-white/5 shadow-xl">
@@ -353,10 +351,10 @@
                                         ))}
                                     </div>
                                 ) : (
-                                    /* VISTA PERSONALE COLLABORATORE */
+                                    /* VISTA PERSONALE COLLABORATORE (Tasto Fatto Rimosso come richiesto) */
                                     <div className="space-y-4 max-w-2xl mx-auto">
                                         {bookings.filter(b => b.barberName === adminUser).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).map(b => (
-                                            <div key={b.id} className="philia-bg p-6 rounded-[30px] border border-white/5 flex justify-between items-center shadow-xl">
+                                            <div key={b.id} className="philia-bg p-6 rounded-[30px] border border-white/5 shadow-xl">
                                                 <div>
                                                     <div className="flex items-center gap-3 mb-1">
                                                         <span className="philia-gold font-black italic text-xl">{b.time}</span>
@@ -366,14 +364,16 @@
                                                     <p className="text-green-500 font-black tracking-widest">{b.customerPhone}</p>
                                                     <p className="text-white/30 text-[9px] uppercase font-bold mt-2">{b.serviceName}</p>
                                                 </div>
-                                                <button onClick={async () => { if(confirm("Lavoro completato?")) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete(); }} className="bg-green-600/10 text-green-500 p-5 rounded-2xl font-black text-[10px] uppercase border border-green-500/20">Fatto</button>
                                             </div>
                                         ))}
+                                        {bookings.filter(b => b.barberName === adminUser).length === 0 && (
+                                            <p className="text-center py-20 opacity-20 uppercase font-black tracking-widest italic">Nessun appuntamento in agenda</p>
+                                        )}
                                     </div>
                                 )}
 
                                 <div className="space-y-12">
-                                    {/* GESTIONE ORARIO PERSONALE (Per Simone, Alessandro o Catello) */}
+                                    {/* GESTIONE ORARIO PERSONALE */}
                                     {barbers.find(b => b.name === adminUser) && (
                                         <section className="max-w-4xl mx-auto space-y-6 pt-10">
                                             <div className="p-6 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/20 rounded-[40px]">
@@ -466,7 +466,7 @@
                                         <div>
                                             <p className="philia-gold font-black text-xs uppercase tracking-widest">{b.date}</p>
                                             <h3 className="font-black text-2xl uppercase italic leading-none my-1">{b.serviceName}</h3>
-                                            <p className="text-white/40 text-[10px] uppercase font-bold">Con {b.barberName}</p>
+                                            <p className="text-white/40 text-[10px] uppercase font-bold">Con {b.barberName} • Salone Philia</p>
                                         </div>
                                         <div className="text-right">
                                             <p className="text-4xl font-black philia-gold italic leading-none">{b.time}</p>
