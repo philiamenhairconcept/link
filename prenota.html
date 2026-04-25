@@ -3,91 +3,312 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prenota Philia</title>
+    <title>Philia - Booking Real-Time</title>
+    <!-- Script necessari per React e Firebase -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        body { 
-            background-color: #332d2d; 
-            color: #d4af37; 
-            margin: 0; 
-            padding: 0; 
-            font-family: sans-serif; 
-            text-align: center;
-        }
-        .header { padding: 30px 20px; }
-        .logo { max-width: 160px; height: auto; margin-bottom: 10px; }
-        
-        /* CONTENITORE FISSO */
-        .cal-wrapper {
-            width: 95%;
-            max-width: 1000px;
-            margin: 0 auto;
-            /* Se vedi questo bordo ma non il calendario, Cal.com sta bloccando l'embed */
-            border: 1px solid #d4af37; 
-            border-radius: 8px;
-            overflow: hidden;
-            background: #222;
-        }
-
-        iframe {
-            width: 100%;
-            height: 900px; /* Altezza fissa generosa */
-            border: none;
-        }
-
-        .btn-backup {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 15px 30px;
-            background-color: #d4af37;
-            color: #332d2d;
-            text-decoration: none;
-            font-weight: bold;
-            border-radius: 5px;
-            text-transform: uppercase;
-            font-size: 0.9em;
-        }
-        .footer-msg { margin-top: 15px; font-size: 0.8em; opacity: 0.7; }
+        body { font-family: 'Inter', sans-serif; background-color: #1a1a1a; margin: 0; color: white; }
+        .philia-bg { background-color: #332d2d; }
+        .philia-gold { color: #d4af37; }
+        .philia-btn { background-color: #d4af37; color: #332d2d; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
     </style>
 </head>
 <body>
+    <div id="root"></div>
 
-    <div class="header">
-        <img src="logo.png" alt="Philia Logo" class="logo" onerror="this.style.display='none'">
-        <br>
-        <a href="https://cal.com/smil3y-wkidff" class="btn-backup">Prenota su Philia</a>
-    </div>
-    
-    <div class="cal-wrapper">
-        <iframe 
-            src="https://cal.com/smil3y-wkidff?theme=dark" 
-            id="cal-frame">
-        </iframe>
-    </div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
 
-    <p class="footer-msg">Problemi con il calendario? Clicca sul tasto dorato in alto.</p>
+        // --- INIZIALIZZAZIONE FIREBASE ---
+        // Utilizziamo le variabili d'ambiente fornite dall'ambiente Philia
+        const firebaseConfig = JSON.parse(__firebase_config);
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'philia-booking-v2';
 
-       <script>
-        // Sensore potenziato per intercettare la conferma di Cal.com
-        window.addEventListener("message", function(e) {
-            
-            // Logghiamo per sicurezza (utile per il debug)
-            console.log("Evento ricevuto:", e.data);
+        const MASTER_SERVICES = [
+            { id: 'perm_ricci', name: 'Permanente Ricci', price: 30, duration: 60, desc: 'Prezzo variabile in base alla lunghezza.' },
+            { id: 'comp_scrub', name: 'Completo + Scrub Viso', price: 30, duration: 45, desc: 'Completo + Scrub Viso' },
+            { id: 'stira_bras', name: 'Stiratura Brasiliana', price: 30, duration: 60, desc: 'Trattamento lisciante professionale' },
+            { id: 'comp_tinta', name: 'Completo + Tinta', price: 27, duration: 30, desc: 'Completo + tinta' },
+            { id: 'schia_cap', name: 'Schiaritura Capelli', price: 20, duration: 60, desc: 'Schiaritura professionale' },
+            { id: 'completo', name: 'Completo', price: 20, duration: 30, desc: 'Taglio + Barba + Shampoo' },
+            { id: 'taglio_barba', name: 'Taglio + Barba', price: 15, duration: 45, desc: 'Taglio capelli + barba' },
+            { id: 'taglio_uomo', name: 'Taglio Uomo', price: 10, duration: 30, desc: 'Taglio capelli uomo' },
+            { id: 'barba_panno', name: 'Barba Panno Caldo', price: 8, duration: 30, desc: 'Barba con panno caldo' },
+            { id: 'shampoo', name: 'Shampoo', price: 5, duration: 15, desc: 'Lavaggio professionale' }
+        ];
 
-            // Verifichiamo se il messaggio arriva da Cal.com
-            // Alcune versioni inviano l'oggetto action direttamente, altre dentro un sotto-oggetto
-            const isCalEvent = e.data && (e.data.origin === "Cal" || e.data.source === "cal");
-            const isSuccess = e.data.action === "bookingSuccessful" || e.data.action === "successfulBooking";
+        function App() {
+            const [user, setUser] = useState(null);
+            const [view, setView] = useState('booking'); 
+            const [step, setStep] = useState(1);
+            const [barbers, setBarbers] = useState([]);
+            const [bookings, setBookings] = useState([]);
+            const [selectedBarber, setSelectedBarber] = useState(null);
+            const [selectedService, setSelectedService] = useState(null);
+            const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+            const [selectedSlot, setSelectedSlot] = useState(null);
+            const [loading, setLoading] = useState(true);
 
-            if (isSuccess) {
-                console.log("Prenotazione rilevata! Reindirizzo...");
+            // Auth & Initial Data
+            useEffect(() => {
+                const init = async () => {
+                    // 1. Autenticazione (Regola 3)
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await auth.signInWithCustomToken(__initial_auth_token);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
+                    } catch (e) { console.error("Auth error", e); }
+                };
+
+                init();
+                const unsubAuth = auth.onAuthStateChanged((u) => {
+                    setUser(u);
+                    if (u) setLoading(false);
+                });
+                return () => unsubAuth();
+            }, []);
+
+            // Firestore Listeners (Regola 1 & 2)
+            useEffect(() => {
+                if (!user) return;
+
+                // Carica Barbieri (Pubblici)
+                const unsubBarbers = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers')
+                    .onSnapshot(snap => {
+                        let data = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                        if (data.length === 0) {
+                            // Setup iniziale se vuoto
+                            const initial = [
+                                { name: 'Simone', skills: MASTER_SERVICES.map(s => s.id), order: 1 },
+                                { name: 'Alessandro', skills: MASTER_SERVICES.map(s => s.id), order: 2 },
+                                { name: 'Catello', skills: MASTER_SERVICES.map(s => s.id), order: 3 }
+                            ];
+                            initial.forEach(b => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').add(b));
+                        }
+                        setBarbers(data.sort((a,b) => a.order - b.order));
+                    });
+
+                // Carica Prenotazioni (Per calcolare slot liberi)
+                const unsubBookings = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings')
+                    .onSnapshot(snap => {
+                        setBookings(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                    });
+
+                return () => { unsubBarbers(); unsubBookings(); };
+            }, [user]);
+
+            const handleConfirm = async () => {
+                if (!selectedSlot) return;
+                const booking = {
+                    userId: user.uid,
+                    barberId: selectedBarber.id,
+                    barberName: selectedBarber.name,
+                    serviceId: selectedService.id,
+                    serviceName: selectedService.name,
+                    price: selectedService.price,
+                    date: selectedDate,
+                    time: selectedSlot,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').add(booking);
+                alert("Prenotazione confermata! A presto da Philia.");
+                setView('my-bookings');
+                setStep(1);
+            };
+
+            const cancelBooking = async (id, date, time) => {
+                const now = new Date();
+                const [h, m] = time.split(':');
+                const bDate = new Date(date);
+                bDate.setHours(parseInt(h), parseInt(m));
                 
-                // Aspettiamo un secondo per far vedere la conferma di Cal
-                setTimeout(() => {
-                    // Usiamo un percorso assoluto per evitare errori di cartella
-                    window.location.href = "index.html";
-                }, 1500);
-            }
-        }, false);
+                if ((bDate - now) / (1000 * 60 * 60) < 2) {
+                    alert("Limite 2 ore superato. Contatta il salone per annullare.");
+                    return;
+                }
+
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(id).delete();
+                alert("Prenotazione annullata.");
+            };
+
+            const getFreeSlots = () => {
+                const slots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"];
+                const occupied = bookings
+                    .filter(b => b.date === selectedDate && b.barberId === selectedBarber.id)
+                    .map(b => b.time);
+                return slots.filter(s => !occupied.includes(s));
+            };
+
+            if (loading) return <div className="flex h-screen items-center justify-center text-[#d4af37] font-bold">CARICAMENTO PHILIA...</div>;
+
+            return (
+                <div className="max-w-md mx-auto min-h-screen pb-24 shadow-2xl relative bg-[#1a1a1a]">
+                    {/* Header */}
+                    <div className="p-6 philia-bg border-b border-[#d4af37]/20 flex justify-between items-center sticky top-0 z-50">
+                        <div>
+                            <h1 className="text-xl font-black philia-gold tracking-tighter uppercase italic">Philia</h1>
+                            <p className="text-[9px] text-white/40 tracking-[4px] uppercase">Men Hair Concept</p>
+                        </div>
+                        <button onClick={() => setView('admin')} className="p-2 philia-gold/40 hover:philia-gold">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                        </button>
+                    </div>
+
+                    <div className="p-6">
+                        {view === 'booking' && (
+                            <div className="fade-in">
+                                {step === 1 && (
+                                    <>
+                                        <h2 className="text-xl font-bold mb-6 border-l-4 border-[#d4af37] pl-3">SCEGLI IL BARBIERE</h2>
+                                        {barbers.map(b => (
+                                            <button key={b.id} onClick={()=>{setSelectedBarber(b); setStep(2);}} className="w-full mb-4 philia-bg p-5 rounded-xl border border-white/5 flex items-center justify-between group">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center border border-[#d4af37]/20 philia-gold font-black">{b.name[0]}</div>
+                                                    <span className="text-lg font-bold group-hover:philia-gold transition-colors">{b.name}</span>
+                                                </div>
+                                                <span className="philia-gold">→</span>
+                                            </button>
+                                        ))}
+                                    </>
+                                )}
+                                {step === 2 && (
+                                    <>
+                                        <button onClick={()=>setStep(1)} className="philia-gold text-xs font-bold mb-4 uppercase tracking-widest">← Indietro</button>
+                                        <h2 className="text-xl font-bold mb-6 border-l-4 border-[#d4af37] pl-3">QUALE SERVIZIO?</h2>
+                                        <div className="space-y-3">
+                                            {MASTER_SERVICES.filter(s => selectedBarber.skills.includes(s.id)).map(s => (
+                                                <button key={s.id} onClick={()=>{setSelectedService(s); setStep(3);}} className="w-full philia-bg p-4 rounded-xl border border-white/5 flex justify-between items-center">
+                                                    <div className="text-left">
+                                                        <p className="font-bold text-sm">{s.name}</p>
+                                                        <p className="text-[9px] text-white/30 uppercase font-bold">{s.duration} MINUTI</p>
+                                                    </div>
+                                                    <p className="philia-gold font-black">€{s.price}</p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                                {step === 3 && (
+                                    <>
+                                        <button onClick={()=>setStep(2)} className="philia-gold text-xs font-bold mb-4 uppercase tracking-widest">← Indietro</button>
+                                        <h2 className="text-xl font-bold mb-6 border-l-4 border-[#d4af37] pl-3">DATA E ORA</h2>
+                                        <input type="date" value={selectedDate} min={new Date().toISOString().split('T')[0]} onChange={(e)=>setSelectedDate(e.target.value)} className="w-full bg-[#332d2d] border border-[#d4af37]/20 p-4 rounded-xl text-white font-bold mb-6 focus:outline-none focus:border-[#d4af37]" />
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {getFreeSlots().map(slot => (
+                                                <button key={slot} onClick={()=>setSelectedSlot(slot)} className={`p-3 rounded-lg font-bold text-sm ${selectedSlot === slot ? 'philia-btn' : 'bg-[#332d2d] border border-white/5 text-white'}`}>{slot}</button>
+                                            ))}
+                                        </div>
+                                        {selectedSlot && (
+                                            <button onClick={handleConfirm} className="w-full mt-10 philia-btn p-5 rounded-xl font-black text-lg uppercase tracking-tighter shadow-xl">Conferma Appuntamento</button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        {view === 'my-bookings' && (
+                            <div className="fade-in">
+                                <h2 className="text-xl font-bold mb-6 border-l-4 border-[#d4af37] pl-3 italic">MIEI APPUNTAMENTI</h2>
+                                {bookings.filter(b => b.userId === user.uid).length === 0 ? <p className="text-white/30 text-sm">Ancora nessuna prenotazione.</p> : (
+                                    bookings.filter(b => b.userId === user.uid).map(b => {
+                                        const canCancel = (new Date(b.date + 'T' + b.time) - new Date()) / (1000 * 60 * 60) >= 2;
+                                        return (
+                                            <div key={b.id} className="philia-bg p-5 rounded-2xl border border-white/5 mb-4 shadow-xl">
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <div>
+                                                        <p className="philia-gold text-[10px] font-bold uppercase tracking-widest">{b.date}</p>
+                                                        <h3 className="font-bold text-lg">{b.serviceName}</h3>
+                                                        <p className="text-white/40 text-xs">Con {b.barberName}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-2xl font-black philia-gold">{b.time}</p>
+                                                        <p className="text-[10px] font-bold text-green-500 uppercase">Verificato</p>
+                                                    </div>
+                                                </div>
+                                                <div className="pt-3 border-t border-white/5 flex justify-end">
+                                                    {canCancel ? (
+                                                        <button onClick={()=>cancelBooking(b.id, b.date, b.time)} className="text-red-500 text-[10px] font-black uppercase tracking-widest hover:underline">Annulla Prenotazione</button>
+                                                    ) : (
+                                                        <span className="text-white/20 text-[9px] italic uppercase">Non annullabile (Limite 2h)</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )
+                                    })
+                                )}
+                            </div>
+                        )}
+
+                        {view === 'admin' && (
+                            <div className="fade-in">
+                                <button onClick={()=>setView('booking')} className="philia-gold text-xs font-bold mb-4 uppercase tracking-widest">← Torna alla Prenotazione</button>
+                                <h2 className="text-2xl font-black mb-2 italic">PANNELLO ADMIN</h2>
+                                <p className="text-white/40 text-[10px] uppercase tracking-widest mb-8">Gestione Skills Collaboratori</p>
+                                
+                                {barbers.map(barber => (
+                                    <div key={barber.id} className="philia-bg p-5 rounded-2xl mb-6 border border-white/5">
+                                        <h3 className="philia-gold font-black text-xl mb-4 border-b border-white/10 pb-2 uppercase italic">{barber.name}</h3>
+                                        <div className="space-y-3">
+                                            {MASTER_SERVICES.map(s => {
+                                                const hasSkill = barber.skills.includes(s.id);
+                                                return (
+                                                    <div key={s.id} className="flex justify-between items-center">
+                                                        <span className={`text-xs ${hasSkill ? 'text-white' : 'text-white/20'}`}>{s.name}</span>
+                                                        <button 
+                                                            onClick={async () => {
+                                                                const newSkills = hasSkill ? barber.skills.filter(id => id !== s.id) : [...barber.skills, s.id];
+                                                                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(barber.id).update({skills: newSkills});
+                                                            }}
+                                                            className={`w-10 h-5 rounded-full relative ${hasSkill ? 'bg-[#d4af37]' : 'bg-white/10'}`}
+                                                        >
+                                                            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${hasSkill ? 'right-1' : 'left-1'}`}></div>
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Navbar Nav */}
+                    <div className="fixed bottom-0 left-0 right-0 philia-bg border-t border-[#d4af37]/10 p-5 flex justify-around items-center max-w-md mx-auto z-50">
+                        <button onClick={()=>{setView('booking'); setStep(1);}} className={`flex flex-col items-center ${view === 'booking' ? 'philia-gold' : 'text-white/30'}`}>
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <span className="text-[9px] font-black mt-1 uppercase tracking-widest">Prenota</span>
+                        </button>
+                        <button onClick={()=>setView('my-bookings')} className={`flex flex-col items-center ${view === 'my-bookings' ? 'philia-gold' : 'text-white/30'}`}>
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span className="text-[9px] font-black mt-1 uppercase tracking-widest">I Miei Tagli</span>
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
