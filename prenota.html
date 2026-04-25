@@ -7,8 +7,7 @@
     <style>
         body { background-color: #332d2d; color: #d4af37; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .logo { max-width: 150px; margin-bottom: 20px; }
-        /* Stile per il calendario */
-        #my-cal { width: 100%; height: 700px; border: none; }
+        #my-cal { width: 100%; height: 800px; border: none; }
     </style>
 </head>
 <body>
@@ -21,25 +20,21 @@
       
       Cal("init", {origin: "https://app.cal.com"});
 
-      // Configura il calendario
       Cal("inline", {
         elementOrSelector: "#my-cal",
-        calLink: "IL_TUO_LINK_CAL_COM", // Esempio: simone-philia/taglio
+        calLink: "IL_TUO_LINK_DI_CAL_COM", // Inserisci qui la parte finale del tuo link (es: simone/taglio)
         config: {"theme":"dark"}
       });
 
-      // IL TRUCCO: Ascolta quando la prenotazione è finita
+      // Il trucco per il redirect gratuito
       Cal("on", {
-        action: "bookingSuccessfulV2",
+        action: "bookingSuccessful",
         callback: (e) => {
-          const data = e.detail.data.booking;
-          // Costruisce il link con i dettagli per l'app
-          const bridgeUrl = `index.html?date=${data.startTime}&name=${data.attendees[0].name}`;
-          
-          // Aspetta 2 secondi per far vedere la conferma e poi scatta il redirect!
+          // Quando la prenotazione è confermata, manda alla pagina ponte
+          // Passiamo anche i parametri per l'app
           setTimeout(() => {
-            window.location.href = bridgeUrl;
-          }, 2000);
+            window.location.href = "index.html" + window.location.search;
+          }, 1500);
         }
       });
     </script>
