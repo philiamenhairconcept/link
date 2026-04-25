@@ -161,7 +161,27 @@
             };
 
             const getFreeSlots = () => {
-                const slots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"];
+                const d = new Date(selectedDate);
+                const day = d.getDay();
+                let slots = [];
+
+                if (day === 6) { // Sabato
+                    slots = [
+                        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", // Mattina (chiusura 13:30)
+                        "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00" // Pomeriggio
+                    ];
+                } else if (day >= 2 && day <= 5) { // Martedì - Venerdì
+                    slots = [
+                        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", // Mattina (chiusura 13:00)
+                        "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00" // Pomeriggio
+                    ];
+                } else if (day === 1) { // Lunedì (Opzionale: orari se aperto, altrimenti vuoto)
+                    slots = [
+                        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
+                        "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"
+                    ];
+                }
+
                 const occupied = bookings
                     .filter(b => b.date === selectedDate && b.barberId === selectedBarber.id)
                     .map(b => b.time);
@@ -229,9 +249,11 @@
                                         </div>
                                         
                                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                            {getFreeSlots().map(slot => (
+                                            {getFreeSlots().length > 0 ? getFreeSlots().map(slot => (
                                                 <button key={slot} onClick={()=>{setSelectedSlot(slot); setStep(4);}} className={`p-4 rounded-xl font-black text-sm transition-all ${selectedSlot === slot ? 'philia-btn scale-105' : 'bg-[#332d2d] border border-white/5 hover:border-[#d4af37]/50'}`}>{slot}</button>
-                                            ))}
+                                            )) : (
+                                                <div className="col-span-full py-10 text-center opacity-30 italic">Nessun orario disponibile per questa data.</div>
+                                            )}
                                         </div>
                                     </>
                                 )}
