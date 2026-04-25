@@ -5,31 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prenota Philia</title>
     <style>
-        /* Sfondo coordinato al logo Philia */
         body { 
             background-color: #332d2d; 
             margin: 0; 
             padding: 0; 
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            min-height: 100vh;
+            overflow-x: hidden;
         }
         .header {
             padding: 20px;
             text-align: center;
-            width: 100%;
+            background-color: #332d2d;
         }
         .logo { 
             max-width: 150px; 
             height: auto; 
         }
-        /* Contenitore per il calendario */
+        /* Contenitore rinforzato */
         #my-cal { 
             width: 100%; 
-            max-width: 900px; 
-            height: 700px; 
+            height: 90vh; /* Usa quasi tutto lo schermo */
+            min-height: 600px;
             border: none;
         }
     </style>
@@ -43,34 +39,34 @@
     <div id="my-cal"></div>
 
     <script>
-      // Inizializzazione Cal.com
-      (function (C, A, L) { let p = function (a, ar) { a.q.push(ar); }; let d = C.document; C.Cal = C.Cal || function () { let a = C.Cal; if (!a.q) { a.q = []; } p(a, arguments); }; }(window, "https://app.cal.com/embed/embed.js", "Cal"));
+      (function (C, A, L) { 
+        let p = function (a, ar) { a.q.push(ar); }; 
+        let d = C.document; 
+        C.Cal = C.Cal || function () { 
+          let a = C.Cal; 
+          if (!a.q) { a.q = []; } 
+          p(a, arguments); 
+        }; 
+      }(window, "https://app.cal.com/embed/embed.js", "Cal"));
       
       Cal("init", {origin: "https://app.cal.com"});
 
-      // Caricamento del tuo calendario specifico
       Cal("inline", {
         elementOrSelector: "#my-cal",
         calLink: "smil3y-wkidff", 
         config: {
-            "theme": "dark",
-            "ui": {
-                "styles": {
-                    "body": { "background": "#332d2d" }
-                }
-            }
+            "theme": "dark"
         }
       });
 
-      // IL TRUCCO PER IL REDIRECT GRATUITO
+      // Redirect dopo il successo
       Cal("on", {
         action: "bookingSuccessful",
         callback: (e) => {
-          // Aspettiamo 2 secondi per far godere al cliente il messaggio di conferma
-          // e poi lo mandiamo alla pagina che apre l'App o mostra il QR
           setTimeout(() => {
-            window.location.href = "index.html"; 
-          }, 2000);
+            // Mandiamo alla index portandoci dietro i dati della prenotazione
+            window.location.href = "index.html" + window.location.search; 
+          }, 1500);
         }
       });
     </script>
