@@ -5,64 +5,74 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prenota Philia</title>
     <style>
-        /* Sfondo identico al logo per eliminare lo stacco */
-        body, html { 
+        body { 
             background-color: #332d2d; 
+            color: #d4af37; 
             margin: 0; 
             padding: 0; 
-            height: 100%; 
-            overflow: hidden; /* Evita la doppia barra di scorrimento */
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .header {
-            padding: 15px;
+            font-family: sans-serif; 
             text-align: center;
-            background-color: #332d2d;
         }
-
-        .logo { 
-            max-width: 130px; 
-            height: auto; 
-        }
-
-        /* Il contenitore del calendario occupa tutto lo spazio restante */
-        .cal-frame-container {
-            flex-grow: 1;
-            width: 100%;
+        .header { padding: 30px 20px; }
+        .logo { max-width: 160px; height: auto; margin-bottom: 10px; }
+        
+        /* CONTENITORE FISSO */
+        .cal-wrapper {
+            width: 95%;
+            max-width: 1000px;
+            margin: 0 auto;
+            /* Se vedi questo bordo ma non il calendario, Cal.com sta bloccando l'embed */
+            border: 1px solid #d4af37; 
+            border-radius: 8px;
+            overflow: hidden;
+            background: #222;
         }
 
         iframe {
             width: 100%;
-            height: 100%;
+            height: 900px; /* Altezza fissa generosa */
             border: none;
         }
+
+        .btn-backup {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 15px 30px;
+            background-color: #d4af37;
+            color: #332d2d;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 5px;
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+        .footer-msg { margin-top: 15px; font-size: 0.8em; opacity: 0.7; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <img src="logo.png" alt="Philia Logo" class="logo" onerror="this.style.display='none'">
+        <br>
+        <a href="https://cal.com/smil3y-wkidff" class="btn-backup">Prenota su Philia</a>
     </div>
     
-    <div class="cal-frame-container">
+    <div class="cal-wrapper">
         <iframe 
-            src="https://cal.com/smil3y-wkidff?theme=dark&embed=true" 
-            allow="geolocation; microphone; camera; calendar; ship-pay">
+            src="https://cal.com/smil3y-wkidff?theme=dark" 
+            id="cal-frame">
         </iframe>
     </div>
 
+    <p class="footer-msg">Problemi con il calendario? Clicca sul tasto dorato in alto.</p>
+
     <script>
-        // Ascoltiamo il messaggio di Cal.com per capire quando la prenotazione è conclusa
+        // Ascolta il successo della prenotazione per il redirect
         window.addEventListener("message", function(e) {
-            // Cal.com invia messaggi per vari eventi, noi cerchiamo la conferma
             if (e.data.action === "bookingSuccessful") {
-                console.log("Prenotazione completata con successo!");
                 setTimeout(() => {
-                    // Reindirizziamo l'utente alla tua pagina ponte (index.html)
                     window.location.href = "index.html";
-                }, 2000);
+                }, 1500);
             }
         });
     </script>
