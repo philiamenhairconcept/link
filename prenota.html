@@ -9,23 +9,28 @@
             background-color: #332d2d; 
             margin: 0; 
             padding: 0; 
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
-            overflow-x: hidden;
+            font-family: sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh;
         }
         .header {
-            padding: 20px;
+            padding: 15px;
             text-align: center;
-            background-color: #332d2d;
         }
         .logo { 
-            max-width: 150px; 
+            max-width: 120px; 
             height: auto; 
         }
-        /* Contenitore rinforzato */
-        #my-cal { 
-            width: 100%; 
-            height: 90vh; /* Usa quasi tutto lo schermo */
-            min-height: 600px;
+        /* Il "motore" del calendario */
+        .cal-container {
+            flex-grow: 1; /* Prende tutto lo spazio rimasto */
+            width: 100%;
+            border: none;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
             border: none;
         }
     </style>
@@ -36,39 +41,25 @@
         <img src="logo.png" alt="Philia Logo" class="logo" onerror="this.style.display='none'">
     </div>
     
-    <div id="my-cal"></div>
+    <div class="cal-container">
+        <iframe 
+            src="https://cal.com/smil3y-wkidff?theme=dark&embed=true" 
+            id="cal-frame">
+        </iframe>
+    </div>
 
     <script>
-      (function (C, A, L) { 
-        let p = function (a, ar) { a.q.push(ar); }; 
-        let d = C.document; 
-        C.Cal = C.Cal || function () { 
-          let a = C.Cal; 
-          if (!a.q) { a.q = []; } 
-          p(a, arguments); 
-        }; 
-      }(window, "https://app.cal.com/embed/embed.js", "Cal"));
-      
-      Cal("init", {origin: "https://app.cal.com"});
-
-      Cal("inline", {
-        elementOrSelector: "#my-cal",
-        calLink: "smil3y-wkidff", 
-        config: {
-            "theme": "dark"
-        }
-      });
-
-      // Redirect dopo il successo
-      Cal("on", {
-        action: "bookingSuccessful",
-        callback: (e) => {
-          setTimeout(() => {
-            // Mandiamo alla index portandoci dietro i dati della prenotazione
-            window.location.href = "index.html" + window.location.search; 
-          }, 1500);
-        }
-      });
+        // Restiamo in ascolto per capire quando il cliente ha finito di prenotare
+        window.addEventListener("message", function(e) {
+            // Cal.com invia un messaggio quando la prenotazione ha successo
+            if (e.data.origin === "Cal" && (e.data.action === "bookingSuccessful" || e.data.action === "successfulBooking")) {
+                console.log("Prenotazione riuscita!");
+                setTimeout(() => {
+                    // Reindirizziamo alla tua pagina ponte index.html
+                    window.location.href = "index.html";
+                }, 2000);
+            }
+        });
     </script>
 </body>
 </html>
