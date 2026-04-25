@@ -5,29 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prenota Philia</title>
     <style>
-        body { 
+        /* Sfondo identico al logo per eliminare lo stacco */
+        body, html { 
             background-color: #332d2d; 
             margin: 0; 
             padding: 0; 
-            font-family: sans-serif; 
-            display: flex; 
-            flex-direction: column; 
-            height: 100vh;
+            height: 100%; 
+            overflow: hidden; /* Evita la doppia barra di scorrimento */
+            display: flex;
+            flex-direction: column;
         }
+        
         .header {
             padding: 15px;
             text-align: center;
+            background-color: #332d2d;
         }
+
         .logo { 
-            max-width: 120px; 
+            max-width: 130px; 
             height: auto; 
         }
-        /* Il "motore" del calendario */
-        .cal-container {
-            flex-grow: 1; /* Prende tutto lo spazio rimasto */
+
+        /* Il contenitore del calendario occupa tutto lo spazio restante */
+        .cal-frame-container {
+            flex-grow: 1;
             width: 100%;
-            border: none;
         }
+
         iframe {
             width: 100%;
             height: 100%;
@@ -41,21 +46,21 @@
         <img src="logo.png" alt="Philia Logo" class="logo" onerror="this.style.display='none'">
     </div>
     
-    <div class="cal-container">
+    <div class="cal-frame-container">
         <iframe 
             src="https://cal.com/smil3y-wkidff?theme=dark&embed=true" 
-            id="cal-frame">
+            allow="geolocation; microphone; camera; calendar; ship-pay">
         </iframe>
     </div>
 
     <script>
-        // Restiamo in ascolto per capire quando il cliente ha finito di prenotare
+        // Ascoltiamo il messaggio di Cal.com per capire quando la prenotazione è conclusa
         window.addEventListener("message", function(e) {
-            // Cal.com invia un messaggio quando la prenotazione ha successo
-            if (e.data.origin === "Cal" && (e.data.action === "bookingSuccessful" || e.data.action === "successfulBooking")) {
-                console.log("Prenotazione riuscita!");
+            // Cal.com invia messaggi per vari eventi, noi cerchiamo la conferma
+            if (e.data.action === "bookingSuccessful") {
+                console.log("Prenotazione completata con successo!");
                 setTimeout(() => {
-                    // Reindirizziamo alla tua pagina ponte index.html
+                    // Reindirizziamo l'utente alla tua pagina ponte (index.html)
                     window.location.href = "index.html";
                 }, 2000);
             }
