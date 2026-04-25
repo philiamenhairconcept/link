@@ -53,7 +53,6 @@
         const db = firebase.firestore();
         const appId = "philia-v2-production";
 
-        // --- LISTA COMPLETA SERVIZI ---
         const MASTER_SERVICES = [
             { id: 'perm_ricci', name: 'Permanente Ricci', price: 30, duration: 60 },
             { id: 'comp_scrub', name: 'Completo + Scrub Viso', price: 30, duration: 45 },
@@ -80,12 +79,10 @@
         const DAYS_NAME = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
 
         function App() {
-            // Identità Cliente
             const [clientPhone, setClientPhone] = useState(localStorage.getItem('philia_phone') || "");
             const [clientName, setClientName] = useState(localStorage.getItem('philia_name') || "");
             const [isIdentified, setIsIdentified] = useState(!!localStorage.getItem('philia_phone'));
             
-            // Stato Globale
             const [view, setView] = useState('booking'); 
             const [adminUser, setAdminUser] = useState(null);
             const [step, setStep] = useState(1);
@@ -94,14 +91,18 @@
             const [settings, setSettings] = useState(null);
             const [loading, setLoading] = useState(true);
 
-            // Stato Prenotazione
             const [selectedBarber, setSelectedBarber] = useState(null);
             const [selectedService, setSelectedService] = useState(null);
             const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA'));
             const [selectedSlot, setSelectedSlot] = useState(null);
 
-            // Stato Nuova Eccezione (Admin)
-            const [newExc, setNewExc] = useState({ date: '', open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:00'] });
+            // Stato Nuova Eccezione migliorato con AM e PM
+            const [newExc, setNewExc] = useState({ 
+                date: '', 
+                open: false, 
+                am: ['09:00', '13:00'], 
+                pm: ['15:30', '20:00'] 
+            });
 
             useEffect(() => {
                 auth.onAuthStateChanged(async (u) => {
@@ -111,18 +112,15 @@
 
                 const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
 
-                // Listener Orari Salone
                 basePath.collection('config').doc('schedule').onSnapshot(doc => {
                     if (doc.exists) setSettings(doc.data());
                 });
 
-                // Listener Barbieri
                 basePath.collection('barbers').onSnapshot(snap => {
                     let data = snap.docs.map(d => ({id: d.id, ...d.data()}));
                     setBarbers(data.sort((a,b) => a.order - b.order));
                 });
 
-                // Listener Prenotazioni
                 basePath.collection('bookings').onSnapshot(snap => {
                     setBookings(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 });
@@ -161,27 +159,17 @@
                 const d = new Date(selectedDate);
                 const day = d.getDay();
                 
-                // LOGICA DI SOSTITUZIONE RIGIDA (Cascata Priorità)
                 let hours = null;
-                
-                // 1. Eccezione data barbiere (Sostituisce tutto per quel barbiere)
                 if (selectedBarber.dateOverrides && selectedBarber.dateOverrides[selectedDate]) {
                     hours = selectedBarber.dateOverrides[selectedDate];
-                } 
-                // 2. Eccezione data globale (Sostituisce tutto per il salone)
-                else if (settings.dateOverrides && settings.dateOverrides[selectedDate]) {
+                } else if (settings.dateOverrides && settings.dateOverrides[selectedDate]) {
                     hours = settings.dateOverrides[selectedDate];
-                } 
-                // 3. Orario personale settimanale
-                else if (selectedBarber.personalSchedule && selectedBarber.personalSchedule[day]) {
+                } else if (selectedBarber.personalSchedule && selectedBarber.personalSchedule[day]) {
                     hours = selectedBarber.personalSchedule[day];
-                } 
-                // 4. Orario globale settimanale
-                else {
+                } else {
                     hours = settings.openingHours[day];
                 }
 
-                // Se non c'è orario o è segnato come chiuso, nessun posto libero
                 if (!hours || !hours.open) return [];
 
                 const now = new Date();
@@ -297,7 +285,6 @@
 
             return (
                 <div className="app-container min-h-screen pb-24 shadow-2xl relative bg-[#1a1a1a] flex flex-col overflow-hidden text-white">
-                    {/* Header */}
                     <div className="p-6 philia-bg border-b border-[#d4af37]/20 flex justify-between items-center sticky top-0 z-50">
                         <h1 className="text-xl font-black philia-gold uppercase italic">Philia</h1>
                         <button onClick={() => { if(prompt("Password:") === "philia2024") setView('admin-login'); }} className="text-white/10 hover:text-[#d4af37]">⚙️</button>
@@ -367,7 +354,7 @@
                                     {barbers.filter(b => b.name !== 'SIMONE').map(b => (
                                         <button key={b.id} onClick={()=>{setAdminUser(b.name); setView('admin');}} className="w-full philia-bg p-6 rounded-3xl font-black text-xl italic uppercase border border-white/10 hover:border-[#d4af37] transition-all">{b.name}</button>
                                     ))}
-                                    <button onClick={()=>setView('booking')} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest">Torna al Salone</button>
+                                    <button onClick={()=>setView('booking')} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest hover:text-white">Torna al Salone</button>
                                 </div>
                             </div>
                         )}
@@ -416,46 +403,76 @@
                                 )}
 
                                 <div className="space-y-12">
-                                    {/* GESTIONE DATE SPECIFICHE (ECCEZIONI) */}
+                                    {/* GESTIONE ECCEZIONI DATE (Sempre visibile all'admin loggato) */}
                                     {barbers.find(b => b.name === adminUser) && (
                                         <section className="max-w-4xl mx-auto space-y-6 pt-10">
                                             <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px]">
-                                                <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none mb-2">Eccezioni Calendario</h3>
+                                                <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none mb-4">Eccezioni Calendario</h3>
                                                 <p className="text-[10px] text-white/40 uppercase mb-8 tracking-widest italic font-bold">Queste date sostituiranno l'orario standard del giorno.</p>
                                                 
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                                     <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5">
                                                         <label className="text-[10px] font-black philia-gold uppercase tracking-widest block">1. Scegli Data</label>
                                                         <input type="date" value={newExc.date} onChange={(e)=>setNewExc({...newExc, date: e.target.value})} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none" />
-                                                        <button onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`w-full p-4 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>{newExc.open ? 'Disponibile (Orari Sotto)' : 'Chiuso (Ferie/Festivo)'}</button>
+                                                        <button onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`w-full p-4 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>{newExc.open ? 'Disponibile (Imposta Orari)' : 'Chiuso (Ferie/Festivo)'}</button>
+                                                        
                                                         {newExc.open && (
-                                                            <div className="grid grid-cols-2 gap-3 mt-4">
-                                                                <div className="space-y-1"><label className="text-[8px] opacity-30 font-black uppercase">Start</label><input type="time" value={newExc.am[0]} onChange={(e)=>setNewExc({...newExc, am:[e.target.value, newExc.am[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full" /></div>
-                                                                <div className="space-y-1"><label className="text-[8px] opacity-30 font-black uppercase">End</label><input type="time" value={newExc.am[1]} onChange={(e)=>setNewExc({...newExc, am:[newExc.am[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full" /></div>
+                                                            <div className="space-y-4 pt-4 border-t border-white/5">
+                                                                <div className="grid grid-cols-2 gap-3">
+                                                                    <div className="space-y-1"><label className="text-[8px] opacity-30 font-black uppercase">Mattina Start</label><input type="time" value={newExc.am[0]} onChange={(e)=>setNewExc({...newExc, am:[e.target.value, newExc.am[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full" /></div>
+                                                                    <div className="space-y-1"><label className="text-[8px] opacity-30 font-black uppercase">Mattina End</label><input type="time" value={newExc.am[1]} onChange={(e)=>setNewExc({...newExc, am:[newExc.am[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full" /></div>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-3">
+                                                                    <div className="space-y-1"><label className="text-[8px] opacity-30 font-black uppercase">Pomeriggio Start</label><input type="time" value={newExc.pm[0]} onChange={(e)=>setNewExc({...newExc, pm:[e.target.value, newExc.pm[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full" /></div>
+                                                                    <div className="space-y-1"><label className="text-[8px] opacity-30 font-black uppercase">Pomeriggio End</label><input type="time" value={newExc.pm[1]} onChange={(e)=>setNewExc({...newExc, pm:[newExc.pm[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full" /></div>
+                                                                </div>
                                                             </div>
                                                         )}
                                                         <button onClick={()=>addDateOverride(barbers.find(b => b.name === adminUser).id)} className="w-full philia-btn p-5 rounded-2xl font-black text-xs uppercase shadow-xl mt-4">Salva Eccezione Personale</button>
-                                                        {adminUser === 'SIMONE' && <button onClick={()=>addDateOverride(null, true)} className="w-full bg-white/10 p-5 rounded-2xl font-black text-xs uppercase text-white hover:bg-white/20 mt-2">Salva Eccezione per Tutto il Team</button>}
+                                                        {adminUser === 'SIMONE' && <button onClick={()=>addDateOverride(null, true)} className="w-full bg-white/10 p-5 rounded-2xl font-black text-xs uppercase text-white hover:bg-white/20 mt-2">Salva Eccezione per Tutto il Salone</button>}
                                                     </div>
 
                                                     <div className="space-y-4">
-                                                        <label className="text-[10px] font-black philia-gold uppercase tracking-widest block">Le tue eccezioni salvate</label>
+                                                        <label className="text-[10px] font-black philia-gold uppercase tracking-widest block">Eccezioni Personali Salvate</label>
                                                         <div className="max-h-[350px] overflow-y-auto pr-2 space-y-3 no-scrollbar">
                                                             {Object.entries(barbers.find(b => b.name === adminUser).dateOverrides || {}).sort().map(([date, h]) => (
                                                                 <div key={date} className="philia-bg p-5 rounded-2xl border border-white/5 flex justify-between items-center group">
-                                                                    <div><p className="font-black text-sm">{date}</p><p className={`text-[10px] font-bold uppercase ${h.open ? 'text-green-500' : 'text-red-500'}`}>{h.open ? `${h.am[0]} - ${h.am[1]}` : 'Chiuso'}</p></div>
+                                                                    <div>
+                                                                        <p className="font-black text-sm">{date}</p>
+                                                                        <p className={`text-[10px] font-bold uppercase ${h.open ? 'text-green-500' : 'text-red-500'}`}>
+                                                                            {h.open ? `AM ${h.am[0]}-${h.am[1]} | PM ${h.pm[0]}-${h.pm[1]}` : 'Chiuso'}
+                                                                        </p>
+                                                                    </div>
                                                                     <button onClick={()=>removeDateOverride(barbers.find(b => b.name === adminUser).id, date)} className="text-red-500/20 group-hover:text-red-500">✕</button>
-                                                                </div>
-                                                            ))}
-                                                            {adminUser === 'SIMONE' && Object.entries(settings?.dateOverrides || {}).sort().map(([date, h]) => (
-                                                                <div key={date + "_global"} className="bg-white/5 p-5 rounded-2xl border border-[#d4af37]/30 flex justify-between items-center group">
-                                                                    <div><p className="font-black text-sm text-[#d4af37]">{date} (GLOBALE)</p><p className={`text-[10px] font-bold uppercase ${h.open ? 'text-green-500' : 'text-red-500'}`}>{h.open ? `${h.am[0]} - ${h.am[1]}` : 'Chiuso'}</p></div>
-                                                                    <button onClick={()=>removeDateOverride(null, date, true)} className="text-red-500/20 group-hover:text-red-500">✕</button>
                                                                 </div>
                                                             ))}
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                {/* NUOVO BLOCCO: LISTA ECCEZIONI GLOBALI (Solo per Simone) */}
+                                                {adminUser === 'SIMONE' && (
+                                                    <div className="mt-10 pt-10 border-t border-white/10 space-y-4">
+                                                        <label className="text-[10px] font-black philia-gold uppercase tracking-widest block">Eccezioni Globali Salone (Per Tutti)</label>
+                                                        <div className="grid grid-cols-1 gap-3">
+                                                            {Object.entries(settings?.dateOverrides || {}).length > 0 ? (
+                                                                Object.entries(settings.dateOverrides).sort().map(([date, h]) => (
+                                                                    <div key={date + "_global"} className="bg-[#d4af37]/5 p-5 rounded-2xl border border-[#d4af37]/20 flex justify-between items-center group">
+                                                                        <div>
+                                                                            <p className="font-black text-sm philia-gold">{date}</p>
+                                                                            <p className={`text-[10px] font-bold uppercase ${h.open ? 'text-green-500' : 'text-red-500'}`}>
+                                                                                {h.open ? `Mattina ${h.am[0]}-${h.am[1]} | Pome ${h.pm[0]}-${h.pm[1]}` : 'Chiuso'}
+                                                                            </p>
+                                                                        </div>
+                                                                        <button onClick={()=>removeDateOverride(null, date, true)} className="text-red-500/50 hover:text-red-500 font-black px-4">ELIMINA</button>
+                                                                    </div>
+                                                                ))
+                                                            ) : (
+                                                                <p className="text-[10px] opacity-20 italic">Nessuna chiusura globale salvata.</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </section>
                                     )}
@@ -560,7 +577,6 @@
                         )}
                     </div>
 
-                    {/* Navigazione Bottom */}
                     <div className="fixed bottom-0 left-0 right-0 philia-bg border-t border-[#d4af37]/10 p-5 flex justify-around items-center max-w-xl mx-auto z-50 rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
                         <button onClick={()=>{setView('booking'); setStep(1);}} className={`flex flex-col items-center transition-all ${view === 'booking' ? 'philia-gold scale-125' : 'text-white/20'}`}>
                             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
