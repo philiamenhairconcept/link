@@ -114,12 +114,12 @@
                 if (!user) return;
                 const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
 
-                // Auto-inizializzazione Impostazioni Orari
+                // Sincronizzazione Impostazioni Orari
                 const unsubSettings = basePath.collection('config').doc('schedule').onSnapshot(doc => {
                     if (!doc.exists) {
                         const defaultSchedule = {
-                            0: { open: false },
-                            1: { open: false },
+                            0: { open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:00'] },
+                            1: { open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:00'] },
                             2: { open: true, am: ['09:00', '13:00'], pm: ['15:30', '20:00'] },
                             3: { open: true, am: ['09:00', '13:00'], pm: ['15:30', '20:00'] },
                             4: { open: true, am: ['09:00', '13:00'], pm: ['15:30', '20:00'] },
@@ -132,7 +132,7 @@
                     }
                 });
 
-                // Auto-inizializzazione Barbieri
+                // Sincronizzazione Barbieri
                 const unsubBarbers = basePath.collection('barbers').onSnapshot(snap => {
                     let data = snap.docs.map(d => ({id: d.id, ...d.data()}));
                     if (data.length === 0) {
@@ -191,11 +191,13 @@
 
                 let slots = [];
                 const generate = (start, end) => {
+                    if (!start || !end) return;
                     let current = new Date(`2000-01-01T${start}:00`);
                     const endTime = new Date(`2000-01-01T${end}:00`);
-                    const lastSlot = new Date(endTime.getTime() - 30 * 60000);
+                    // Sottraiamo 30 min dall'orario di chiusura per l'ultimo appuntamento utile
+                    const lastSlotLimit = new Date(endTime.getTime() - 30 * 60000);
                     
-                    while (current <= lastSlot) {
+                    while (current <= lastSlotLimit) {
                         slots.push(current.toTimeString().substring(0, 5));
                         current.setMinutes(current.getMinutes() + 30);
                     }
@@ -221,6 +223,11 @@
 
             const updateSchedule = async (day, field, value) => {
                 const newHours = { ...settings.openingHours };
+                
+                // Assicuriamoci che am e pm esistano
+                if (!newHours[day].am) newHours[day].am = ['09:00', '13:00'];
+                if (!newHours[day].pm) newHours[day].pm = ['15:30', '20:00'];
+
                 if (field === 'open') newHours[day].open = value;
                 else if (field === 'am_start') newHours[day].am[0] = value;
                 else if (field === 'am_end') newHours[day].am[1] = value;
@@ -286,7 +293,7 @@
                                     <>
                                         <button onClick={()=>setStep(2)} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest flex items-center gap-2">← CAMBIA SERVIZIO</button>
                                         <h2 className="text-xl font-bold mb-8 border-l-4 border-[#d4af37] pl-4 uppercase">Scegli Data e Ora</h2>
-                                        <div className="bg-[#332d2d] p-6 rounded-3xl mb-8 border border-white/5 text-center">
+                                        <div className="bg-[#332d2d] p-6 rounded-3xl mb-8 border border-white/5 text-center text-white">
                                             <input type="date" value={selectedDate} min={new Date().toISOString().split('T')[0]} onChange={(e)=>setSelectedDate(e.target.value)} className="bg-transparent text-white font-bold text-xl outline-none" />
                                             {settings && !settings.openingHours[new Date(selectedDate).getDay()].open && (
                                                 <p className="text-red-500 text-[10px] font-bold mt-2 uppercase">⚠️ Giorno di Chiusura</p>
@@ -331,19 +338,19 @@
 
                         {view === 'my-bookings' && (
                             <div className="fade-in max-w-xl mx-auto">
-                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-tighter">I Miei Appuntamenti</h2>
+                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase">I Miei Appuntamenti</h2>
                                 {bookings.filter(b => b.userId === user?.uid).length === 0 ? (
                                     <div className="text-center p-12 philia-bg rounded-3xl opacity-30">
                                         <p className="text-sm font-bold uppercase tracking-widest">Nessun appuntamento attivo</p>
                                     </div>
                                 ) : (
                                     bookings.filter(b => b.userId === user?.uid).map(b => (
-                                        <div key={b.id} className="philia-bg p-6 rounded-3xl border border-white/5 mb-5 shadow-2xl relative overflow-hidden">
+                                        <div key={b.id} className="philia-bg p-6 rounded-3xl border border-white/5 mb-5 shadow-2xl">
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <p className="philia-gold text-[10px] font-black uppercase tracking-widest mb-1">{b.date}</p>
                                                     <h3 className="font-bold text-xl leading-tight">{b.serviceName}</h3>
-                                                    <p className="text-white/40 text-[10px] uppercase font-black mt-2">Specialista: {b.barberName}</p>
+                                                    <p className="text-white/40 text-[10px] uppercase font-bold mt-2">Specialista: {b.barberName}</p>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-3xl font-black philia-gold leading-none">{b.time}</p>
@@ -363,40 +370,45 @@
                                 </div>
                                 
                                 {settings && (
-                                    <section>
+                                    <section className="bg-black/20 p-6 rounded-3xl border border-[#d4af37]/20">
                                         <h3 className="text-xl font-black mb-6 philia-gold italic uppercase tracking-tighter">1. Gestione Orari e Aperture</h3>
-                                        <div className="space-y-4">
+                                        <div className="space-y-6">
                                             {Object.keys(settings.openingHours).map(dayIdx => {
                                                 const h = settings.openingHours[dayIdx];
                                                 return (
-                                                    <div key={dayIdx} className="philia-bg p-6 rounded-3xl border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                                        <div className="w-32">
-                                                            <p className="font-black text-lg">{DAYS_NAME[dayIdx]}</p>
-                                                            <button 
-                                                                onClick={() => updateSchedule(dayIdx, 'open', !h.open)}
-                                                                className={`text-[10px] font-bold px-2 py-1 rounded mt-1 uppercase ${h.open ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}
-                                                            >
-                                                                {h.open ? 'Aperto' : 'Chiuso'}
-                                                            </button>
+                                                    <div key={dayIdx} className="philia-bg p-5 rounded-2xl border border-white/5 flex flex-col gap-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <p className="font-black text-lg uppercase italic">{DAYS_NAME[dayIdx]}</p>
+                                                            <div className="flex items-center gap-3">
+                                                                <span className={`text-[10px] font-bold uppercase ${h.open ? 'text-green-500' : 'text-red-500'}`}>
+                                                                    {h.open ? 'Aperto' : 'Chiuso'}
+                                                                </span>
+                                                                <button 
+                                                                    onClick={() => updateSchedule(dayIdx, 'open', !h.open)}
+                                                                    className={`w-10 h-5 rounded-full relative transition-all ${h.open ? 'bg-green-500' : 'bg-red-500/20'}`}
+                                                                >
+                                                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${h.open ? 'right-1' : 'left-1'}`}></div>
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                         
                                                         {h.open && (
-                                                            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t border-white/5">
                                                                 <div>
                                                                     <label className="text-[8px] opacity-40 uppercase block mb-1">Mattina Inizio</label>
-                                                                    <input type="time" value={h.am[0]} onChange={(e)=>updateSchedule(dayIdx, 'am_start', e.target.value)} className="bg-black/20 p-2 rounded w-full text-xs outline-none" />
+                                                                    <input type="time" value={h.am?.[0] || '09:00'} onChange={(e)=>updateSchedule(dayIdx, 'am_start', e.target.value)} className="bg-black/40 p-2 rounded-lg w-full text-xs text-[#d4af37] outline-none" />
                                                                 </div>
                                                                 <div>
                                                                     <label className="text-[8px] opacity-40 uppercase block mb-1">Mattina Fine</label>
-                                                                    <input type="time" value={h.am[1]} onChange={(e)=>updateSchedule(dayIdx, 'am_end', e.target.value)} className="bg-black/20 p-2 rounded w-full text-xs outline-none" />
+                                                                    <input type="time" value={h.am?.[1] || '13:00'} onChange={(e)=>updateSchedule(dayIdx, 'am_end', e.target.value)} className="bg-black/40 p-2 rounded-lg w-full text-xs text-[#d4af37] outline-none" />
                                                                 </div>
                                                                 <div>
                                                                     <label className="text-[8px] opacity-40 uppercase block mb-1">Pomeriggio Inizio</label>
-                                                                    <input type="time" value={h.pm[0]} onChange={(e)=>updateSchedule(dayIdx, 'pm_start', e.target.value)} className="bg-black/20 p-2 rounded w-full text-xs outline-none" />
+                                                                    <input type="time" value={h.pm?.[0] || '15:30'} onChange={(e)=>updateSchedule(dayIdx, 'pm_start', e.target.value)} className="bg-black/40 p-2 rounded-lg w-full text-xs text-[#d4af37] outline-none" />
                                                                 </div>
                                                                 <div>
                                                                     <label className="text-[8px] opacity-40 uppercase block mb-1">Pomeriggio Fine</label>
-                                                                    <input type="time" value={h.pm[1]} onChange={(e)=>updateSchedule(dayIdx, 'pm_end', e.target.value)} className="bg-black/20 p-2 rounded w-full text-xs outline-none" />
+                                                                    <input type="time" value={h.pm?.[1] || '20:00'} onChange={(e)=>updateSchedule(dayIdx, 'pm_end', e.target.value)} className="bg-black/40 p-2 rounded-lg w-full text-xs text-[#d4af37] outline-none" />
                                                                 </div>
                                                             </div>
                                                         )}
