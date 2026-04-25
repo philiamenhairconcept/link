@@ -10,7 +10,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Firebase SDK Compat (Legacy) -->
+    <!-- Firebase SDK Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -44,14 +44,19 @@
             measurementId: "G-X5V5J1JJC1"
         };
 
-        // Inizializzazione Firebase
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
+        // Inizializzazione Firebase con controllo errori
+        try {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+                console.log("Firebase inizializzato correttamente");
+            }
+        } catch (e) {
+            console.error("Errore inizializzazione Firebase:", e);
         }
         
         const auth = firebase.auth();
         const db = firebase.firestore();
-        const appId = "philia-v2-production";
+        const appId = "philia-production-v2"; // ID univoco per il database
 
         // --- CATALOGO SERVIZI ---
         const MASTER_SERVICES = [
@@ -88,12 +93,19 @@
             const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
             const [selectedSlot, setSelectedSlot] = useState(null);
             const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
 
-            // Inizializzazione Auth
+            // Gestione Autenticazione
             useEffect(() => {
                 const unsubAuth = auth.onAuthStateChanged(async (u) => {
+                    console.log("Stato Auth cambiato:", u ? "Loggato" : "Non loggato");
                     if (!u) {
-                        try { await auth.signInAnonymously(); } catch(e) { console.error("Errore Auth:", e); }
+                        try { 
+                            await auth.signInAnonymously(); 
+                        } catch(e) { 
+                            console.error("Errore Accesso Anonimo:", e);
+                            setError("Impossibile connettersi. Verifica di aver attivato 'Accesso Anonimo' su Firebase.");
+                        }
                     }
                     setUser(u);
                     setLoading(false);
@@ -105,12 +117,16 @@
             useEffect(() => {
                 if (!user) return;
                 
+                console.log("Avvio caricamento dati Firestore...");
                 const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
 
                 // Listener Collaboratori
                 const unsubBarbers = basePath.collection('barbers').onSnapshot(snap => {
                     let data = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                    console.log("Barbieri caricati:", data.length);
+                    
                     if (data.length === 0) {
+                        console.log("Database vuoto, inizializzazione Simone, Alessandro e Catello...");
                         const initial = [
                             { name: 'Simone', skills: MASTER_SERVICES.map(s => s.id), order: 1 },
                             { name: 'Alessandro', skills: MASTER_SERVICES.map(s => s.id), order: 2 },
@@ -119,34 +135,41 @@
                         initial.forEach(b => basePath.collection('barbers').add(b));
                     }
                     setBarbers(data.sort((a,b) => a.order - b.order));
+                }, (err) => {
+                    console.error("Errore Firestore Barbieri:", err);
+                    setError("Errore database. Verifica di aver creato il database Firestore in 'Modalità Test'.");
                 });
 
                 // Listener Prenotazioni
                 const unsubBookings = basePath.collection('bookings').onSnapshot(snap => {
                     setBookings(snap.docs.map(d => ({id: d.id, ...d.data()})));
-                });
+                }, (err) => console.error("Errore Firestore Prenotazioni:", err));
 
                 return () => { unsubBarbers(); unsubBookings(); };
             }, [user]);
 
             const handleConfirm = async () => {
                 if (!selectedSlot) return;
-                const booking = {
-                    userId: user.uid,
-                    barberId: selectedBarber.id,
-                    barberName: selectedBarber.name,
-                    serviceId: selectedService.id,
-                    serviceName: selectedService.name,
-                    price: selectedService.price,
-                    date: selectedDate,
-                    time: selectedSlot,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                };
+                try {
+                    const booking = {
+                        userId: user.uid,
+                        barberId: selectedBarber.id,
+                        barberName: selectedBarber.name,
+                        serviceId: selectedService.id,
+                        serviceName: selectedService.name,
+                        price: selectedService.price,
+                        date: selectedDate,
+                        time: selectedSlot,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    };
 
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').add(booking);
-                alert("✂️ Prenotazione Confermata! Ti aspettiamo in salone.");
-                setView('my-bookings');
-                setStep(1);
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').add(booking);
+                    alert("✂️ Prenotazione Confermata! Ti aspettiamo in salone.");
+                    setView('my-bookings');
+                    setStep(1);
+                } catch (e) {
+                    alert("Errore durante la prenotazione. Riprova.");
+                }
             };
 
             const cancelBooking = async (id, date, time) => {
@@ -173,11 +196,20 @@
                 return slots.filter(s => !occupied.includes(s));
             };
 
+            if (error) return (
+                <div className="h-screen flex items-center justify-center bg-[#1a1a1a] p-8 text-center">
+                    <div>
+                        <p className="text-red-500 font-bold mb-4">⚠️ {error}</p>
+                        <button onClick={() => window.location.reload()} className="philia-btn px-6 py-2 rounded-full font-bold">Riprova</button>
+                    </div>
+                </div>
+            );
+
             if (loading) return (
                 <div className="h-screen flex items-center justify-center bg-[#1a1a1a]">
                     <div className="text-center">
                         <div className="w-12 h-12 border-4 border-[#d4af37] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="philia-gold font-bold uppercase tracking-widest text-xs">Philia Concept...</p>
+                        <p className="philia-gold font-bold uppercase tracking-widest text-xs">Connessione a Philia...</p>
                     </div>
                 </div>
             );
@@ -201,7 +233,7 @@
                                 {step === 1 && (
                                     <>
                                         <h2 className="text-xl font-bold mb-6 border-l-4 border-[#d4af37] pl-4 uppercase">Chi ti servirà?</h2>
-                                        {barbers.map(b => (
+                                        {barbers.length === 0 ? <p className="text-white/20 text-center py-10">Caricamento staff...</p> : barbers.map(b => (
                                             <button key={b.id} onClick={()=>{setSelectedBarber(b); setStep(2);}} className="w-full mb-4 philia-bg p-5 rounded-2xl border border-white/5 flex items-center justify-between group active:scale-[0.98] transition-all">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-14 h-14 bg-black rounded-full flex items-center justify-center border border-[#d4af37]/30 philia-gold font-black text-xl">{b.name[0]}</div>
