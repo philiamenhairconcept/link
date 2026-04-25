@@ -111,15 +111,18 @@
 
                 const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
 
+                // Listener Orari Salone
                 basePath.collection('config').doc('schedule').onSnapshot(doc => {
                     if (doc.exists) setSettings(doc.data());
                 });
 
+                // Listener Barbieri
                 basePath.collection('barbers').onSnapshot(snap => {
                     let data = snap.docs.map(d => ({id: d.id, ...d.data()}));
                     setBarbers(data.sort((a,b) => a.order - b.order));
                 });
 
+                // Listener Prenotazioni
                 basePath.collection('bookings').onSnapshot(snap => {
                     setBookings(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 });
@@ -158,24 +161,27 @@
                 const d = new Date(selectedDate);
                 const day = d.getDay();
                 
-                // GERARCHIA PRIORITÀ:
-                // 1. Eccezione data specifica del barbiere
-                // 2. Eccezione data specifica globale salone
-                // 3. Orario settimanale del barbiere
-                // 4. Orario settimanale globale
-                
+                // LOGICA DI SOSTITUZIONE RIGIDA (Cascata Priorità)
                 let hours = null;
                 
+                // 1. Eccezione data barbiere (Sostituisce tutto per quel barbiere)
                 if (selectedBarber.dateOverrides && selectedBarber.dateOverrides[selectedDate]) {
                     hours = selectedBarber.dateOverrides[selectedDate];
-                } else if (settings.dateOverrides && settings.dateOverrides[selectedDate]) {
+                } 
+                // 2. Eccezione data globale (Sostituisce tutto per il salone)
+                else if (settings.dateOverrides && settings.dateOverrides[selectedDate]) {
                     hours = settings.dateOverrides[selectedDate];
-                } else if (selectedBarber.personalSchedule && selectedBarber.personalSchedule[day]) {
+                } 
+                // 3. Orario personale settimanale
+                else if (selectedBarber.personalSchedule && selectedBarber.personalSchedule[day]) {
                     hours = selectedBarber.personalSchedule[day];
-                } else {
+                } 
+                // 4. Orario globale settimanale
+                else {
                     hours = settings.openingHours[day];
                 }
 
+                // Se non c'è orario o è segnato come chiuso, nessun posto libero
                 if (!hours || !hours.open) return [];
 
                 const now = new Date();
@@ -195,6 +201,7 @@
                         cur.setMinutes(cur.getMinutes() + 30);
                     }
                 };
+                
                 if (hours.am) gen(hours.am[0], hours.am[1]);
                 if (hours.pm) gen(hours.pm[0], hours.pm[1]);
                 
@@ -224,33 +231,32 @@
                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(barberId).update({ personalSchedule: newPersonalSchedule });
             };
 
-            // Nuove funzioni per gestione ECCEZIONI DATE
-            const addDateOverride = async (targetId, isGlobal = false) => {
-                if (!newExc.date) return alert("Seleziona una data.");
-                
+            const addDateOverride = async (barberId, isGlobal = false) => {
+                if (!newExc.date) return alert("Scegli una data!");
                 if (isGlobal) {
                     const newOverrides = { ...(settings.dateOverrides || {}) };
                     newOverrides[newExc.date] = { open: newExc.open, am: newExc.am, pm: newExc.pm };
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('schedule').update({ dateOverrides: newOverrides });
                 } else {
-                    const barber = barbers.find(b => b.id === targetId);
+                    const barber = barbers.find(b => b.id === barberId);
                     const newOverrides = { ...(barber.dateOverrides || {}) };
                     newOverrides[newExc.date] = { open: newExc.open, am: newExc.am, pm: newExc.pm };
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(targetId).update({ dateOverrides: newOverrides });
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(barberId).update({ dateOverrides: newOverrides });
                 }
-                alert("Data salvata correttamente!");
+                setNewExc({ date: '', open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:00'] });
+                alert("Eccezione salvata!");
             };
 
-            const removeDateOverride = async (targetId, dateKey, isGlobal = false) => {
+            const removeDateOverride = async (barberId, dateKey, isGlobal = false) => {
                 if (isGlobal) {
                     const newOverrides = { ...settings.dateOverrides };
                     delete newOverrides[dateKey];
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('schedule').update({ dateOverrides: newOverrides });
                 } else {
-                    const barber = barbers.find(b => b.id === targetId);
+                    const barber = barbers.find(b => b.id === barberId);
                     const newOverrides = { ...barber.dateOverrides };
                     delete newOverrides[dateKey];
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(targetId).update({ dateOverrides: newOverrides });
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(barberId).update({ dateOverrides: newOverrides });
                 }
             };
 
@@ -261,29 +267,30 @@
             };
 
             const addNewBarber = async () => {
-                const name = prompt("Nome del nuovo barbiere:").toUpperCase();
+                const name = prompt("Nome barbiere:").toUpperCase();
                 if (!name) return;
-                const newB = { name: name, skills: MASTER_SERVICES.map(s => s.id), order: barbers.length + 1, personalSchedule: {}, dateOverrides: {} };
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').add(newB);
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').add({
+                    name: name, skills: MASTER_SERVICES.map(s => s.id), order: barbers.length + 1, personalSchedule: {}, dateOverrides: {}
+                });
             };
 
             const removeBarber = async (id, name) => {
-                if (confirm(`Eliminare ${name}?`)) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(id).delete();
+                if (confirm(`Rimuovere ${name}?`)) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(id).delete();
             };
 
             if (loading) return <div className="h-screen flex items-center justify-center bg-[#1a1a1a] text-[#d4af37] font-bold tracking-[5px]">PHILIA...</div>;
 
             if (!isIdentified) return (
-                <div className="h-screen flex items-center justify-center bg-[#1a1a1a] p-6 text-center">
+                <div className="h-screen flex items-center justify-center bg-[#1a1a1a] p-6 text-center text-white">
                     <div className="fade-in max-w-sm w-full philia-bg p-10 rounded-[40px] border border-[#d4af37]/20 shadow-2xl">
-                        <h1 className="text-4xl font-black philia-gold mb-2 italic uppercase text-center">Philia</h1>
-                        <p className="text-white/30 text-[10px] uppercase tracking-[4px] mb-10 text-center leading-relaxed">Benvenuto nel Salone</p>
+                        <h1 className="text-4xl font-black philia-gold mb-2 italic uppercase">Philia</h1>
+                        <p className="text-white/30 text-[10px] uppercase tracking-[4px] mb-10 leading-relaxed">Benvenuto nel Salone</p>
                         <div className="space-y-4 mb-8 text-left">
                             <input type="text" value={clientName} onChange={(e)=>setClientName(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:border-[#d4af37]" placeholder="Nome" />
                             <input type="tel" value={clientPhone} onChange={(e)=>setClientPhone(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:border-[#d4af37]" placeholder="Cellulare" />
                         </div>
                         <button onClick={saveIdentity} className="w-full philia-btn p-5 rounded-2xl font-black uppercase text-xs shadow-xl hover:scale-105 transition-all">Accedi</button>
-                        <button onClick={()=>{ if(prompt("Password Staff:") === "philia2024") { setIsIdentified(true); setView('admin-login'); }}} className="mt-10 text-[9px] text-white/10 uppercase tracking-widest block mx-auto hover:text-[#d4af37]">Area Staff</button>
+                        <button onClick={()=>{ if(prompt("Password Staff:") === "philia2024") { setIsIdentified(true); setView('admin-login'); }}} className="mt-10 text-[9px] text-white/10 uppercase tracking-widest block mx-auto">Area Staff</button>
                     </div>
                 </div>
             );
@@ -301,7 +308,7 @@
                             <div className="fade-in max-w-xl mx-auto">
                                 {step === 1 && (
                                     <div className="grid grid-cols-1 gap-4">
-                                        <h2 className="text-center text-xl font-black philia-gold italic uppercase mb-6 tracking-widest leading-none">Scegli lo Specialista</h2>
+                                        <h2 className="text-center text-xl font-black philia-gold italic uppercase mb-6 tracking-widest">Scegli lo Specialista</h2>
                                         {barbers.map(b => (
                                             <button key={b.id} onClick={()=>{setSelectedBarber(b); setStep(2);}} className="w-full philia-bg p-8 rounded-[30px] border-2 border-white/5 hover:border-[#d4af37] font-black uppercase italic text-2xl tracking-widest transition-all shadow-xl">{b.name}</button>
                                         ))}
@@ -339,14 +346,14 @@
                                     <div className="fade-in space-y-6 text-center">
                                         <button onClick={()=>setStep(3)} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest">← Indietro</button>
                                         <div className="philia-bg p-8 rounded-[40px] border border-[#d4af37]/20 shadow-2xl">
-                                            <p className="font-black text-2xl philia-gold uppercase italic mb-8">{selectedService.name}</p>
+                                            <p className="font-black text-2xl philia-gold uppercase italic mb-8 leading-tight">{selectedService.name}</p>
                                             <div className="bg-black/20 py-6 px-10 rounded-3xl border border-white/5 inline-block">
                                                 <p className="font-bold text-lg mb-1 tracking-tight">{selectedDate}</p>
                                                 <p className="philia-gold font-black text-4xl italic">{selectedSlot}</p>
                                             </div>
                                             <p className="text-[10px] mt-8 text-white/30 uppercase font-black">Cliente: {clientName}</p>
                                         </div>
-                                        <button onClick={handleConfirm} className="w-full philia-btn p-6 rounded-[30px] font-black text-xl uppercase italic shadow-2xl active:scale-95 transition-all">CONFERMA</button>
+                                        <button onClick={handleConfirm} className="w-full philia-btn p-6 rounded-[30px] font-black text-xl uppercase shadow-2xl active:scale-95 transition-all">CONFERMA</button>
                                     </div>
                                 )}
                             </div>
@@ -354,13 +361,13 @@
 
                         {view === 'admin-login' && (
                             <div className="fade-in max-w-xl mx-auto py-10 text-center">
-                                <h2 className="text-3xl font-black philia-gold mb-12 italic uppercase tracking-widest leading-none">Staff Philia</h2>
+                                <h2 className="text-3xl font-black philia-gold mb-12 italic uppercase tracking-widest leading-none">Area Staff</h2>
                                 <div className="grid gap-4">
                                     <button onClick={()=>{setAdminUser('SIMONE'); setView('admin');}} className="w-full philia-btn p-8 rounded-3xl font-black text-2xl italic uppercase shadow-2xl scale-105 transition-all">SIMONE (MASTER)</button>
                                     {barbers.filter(b => b.name !== 'SIMONE').map(b => (
                                         <button key={b.id} onClick={()=>{setAdminUser(b.name); setView('admin');}} className="w-full philia-bg p-6 rounded-3xl font-black text-xl italic uppercase border border-white/10 hover:border-[#d4af37] transition-all">{b.name}</button>
                                     ))}
-                                    <button onClick={()=>setView('booking')} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest">Esci</button>
+                                    <button onClick={()=>setView('booking')} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest">Torna al Salone</button>
                                 </div>
                             </div>
                         )}
@@ -368,7 +375,7 @@
                         {view === 'admin' && (
                             <div className="space-y-12 pb-20 fade-in">
                                 <div className="flex justify-between items-center border-b border-[#d4af37]/20 pb-6">
-                                    <h2 className="text-2xl font-black italic uppercase leading-none">{adminUser === 'SIMONE' ? 'GESTIONE BOSS' : `AGENDA ${adminUser}`}</h2>
+                                    <h2 className="text-2xl font-black italic uppercase leading-none tracking-tighter">{adminUser === 'SIMONE' ? 'PROPRIETARIO' : `AGENDA ${adminUser}`}</h2>
                                     <button onClick={()=>{setAdminUser(null); setView('booking');}} className="philia-gold text-xs font-bold uppercase border border-[#d4af37]/30 px-6 py-3 rounded-full">Indietro</button>
                                 </div>
                                 
@@ -409,38 +416,41 @@
                                 )}
 
                                 <div className="space-y-12">
-                                    {/* NUOVA SEZIONE: GESTIONE DATE SPECIFICHE (Per chiunque loggato) */}
+                                    {/* GESTIONE DATE SPECIFICHE (ECCEZIONI) */}
                                     {barbers.find(b => b.name === adminUser) && (
                                         <section className="max-w-4xl mx-auto space-y-6 pt-10">
-                                            <div className="p-6 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/20 rounded-[40px]">
-                                                <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none mb-4">Eccezioni Calendario (Date Specifiche)</h3>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                                                    <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-4">
-                                                        <label className="text-[10px] font-black philia-gold uppercase tracking-widest">1. Seleziona Data</label>
-                                                        <input type="date" value={newExc.date} onChange={(e)=>setNewExc({...newExc, date: e.target.value})} className="w-full bg-black/40 border border-white/10 p-3 rounded-xl font-bold text-white outline-none" />
-                                                        <div className="flex items-center gap-3">
-                                                            <button onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`flex-1 p-3 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>{newExc.open ? 'Aperto' : 'Chiuso (Ferie)'}</button>
-                                                        </div>
+                                            <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px]">
+                                                <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none mb-2">Eccezioni Calendario</h3>
+                                                <p className="text-[10px] text-white/40 uppercase mb-8 tracking-widest italic font-bold">Queste date sostituiranno l'orario standard del giorno.</p>
+                                                
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                                    <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5">
+                                                        <label className="text-[10px] font-black philia-gold uppercase tracking-widest block">1. Scegli Data</label>
+                                                        <input type="date" value={newExc.date} onChange={(e)=>setNewExc({...newExc, date: e.target.value})} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none" />
+                                                        <button onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`w-full p-4 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>{newExc.open ? 'Disponibile (Orari Sotto)' : 'Chiuso (Ferie/Festivo)'}</button>
                                                         {newExc.open && (
-                                                            <div className="grid grid-cols-2 gap-2 mt-4">
-                                                                <input type="time" value={newExc.am[0]} onChange={(e)=>setNewExc({...newExc, am:[e.target.value, newExc.am[1]]})} className="bg-black/40 p-2 rounded-lg text-xs" />
-                                                                <input type="time" value={newExc.am[1]} onChange={(e)=>setNewExc({...newExc, am:[newExc.am[0], e.target.value]})} className="bg-black/40 p-2 rounded-lg text-xs" />
+                                                            <div className="grid grid-cols-2 gap-3 mt-4">
+                                                                <div className="space-y-1"><label className="text-[8px] opacity-30 font-black uppercase">Start</label><input type="time" value={newExc.am[0]} onChange={(e)=>setNewExc({...newExc, am:[e.target.value, newExc.am[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full" /></div>
+                                                                <div className="space-y-1"><label className="text-[8px] opacity-30 font-black uppercase">End</label><input type="time" value={newExc.am[1]} onChange={(e)=>setNewExc({...newExc, am:[newExc.am[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full" /></div>
                                                             </div>
                                                         )}
-                                                        <button onClick={()=>addDateOverride(barbers.find(b => b.name === adminUser).id)} className="w-full philia-btn p-4 rounded-xl font-black text-xs uppercase shadow-xl mt-4">Salva Eccezione Personale</button>
-                                                        {adminUser === 'SIMONE' && <button onClick={()=>addDateOverride(null, true)} className="w-full bg-white/10 p-4 rounded-xl font-black text-xs uppercase text-white hover:bg-white/20 mt-2">Salva Eccezione per Tutto il Salone</button>}
+                                                        <button onClick={()=>addDateOverride(barbers.find(b => b.name === adminUser).id)} className="w-full philia-btn p-5 rounded-2xl font-black text-xs uppercase shadow-xl mt-4">Salva Eccezione Personale</button>
+                                                        {adminUser === 'SIMONE' && <button onClick={()=>addDateOverride(null, true)} className="w-full bg-white/10 p-5 rounded-2xl font-black text-xs uppercase text-white hover:bg-white/20 mt-2">Salva Eccezione per Tutto il Team</button>}
                                                     </div>
 
                                                     <div className="space-y-4">
-                                                        <label className="text-[10px] font-black philia-gold uppercase tracking-widest">Le tue eccezioni salvate</label>
-                                                        <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 no-scrollbar">
+                                                        <label className="text-[10px] font-black philia-gold uppercase tracking-widest block">Le tue eccezioni salvate</label>
+                                                        <div className="max-h-[350px] overflow-y-auto pr-2 space-y-3 no-scrollbar">
                                                             {Object.entries(barbers.find(b => b.name === adminUser).dateOverrides || {}).sort().map(([date, h]) => (
-                                                                <div key={date} className="philia-bg p-4 rounded-2xl border border-white/5 flex justify-between items-center group">
-                                                                    <div>
-                                                                        <p className="font-black text-sm">{date}</p>
-                                                                        <p className={`text-[10px] font-bold uppercase ${h.open ? 'text-green-500' : 'text-red-500'}`}>{h.open ? `${h.am[0]}-${h.am[1]}` : 'Chiuso'}</p>
-                                                                    </div>
+                                                                <div key={date} className="philia-bg p-5 rounded-2xl border border-white/5 flex justify-between items-center group">
+                                                                    <div><p className="font-black text-sm">{date}</p><p className={`text-[10px] font-bold uppercase ${h.open ? 'text-green-500' : 'text-red-500'}`}>{h.open ? `${h.am[0]} - ${h.am[1]}` : 'Chiuso'}</p></div>
                                                                     <button onClick={()=>removeDateOverride(barbers.find(b => b.name === adminUser).id, date)} className="text-red-500/20 group-hover:text-red-500">✕</button>
+                                                                </div>
+                                                            ))}
+                                                            {adminUser === 'SIMONE' && Object.entries(settings?.dateOverrides || {}).sort().map(([date, h]) => (
+                                                                <div key={date + "_global"} className="bg-white/5 p-5 rounded-2xl border border-[#d4af37]/30 flex justify-between items-center group">
+                                                                    <div><p className="font-black text-sm text-[#d4af37]">{date} (GLOBALE)</p><p className={`text-[10px] font-bold uppercase ${h.open ? 'text-green-500' : 'text-red-500'}`}>{h.open ? `${h.am[0]} - ${h.am[1]}` : 'Chiuso'}</p></div>
+                                                                    <button onClick={()=>removeDateOverride(null, date, true)} className="text-red-500/20 group-hover:text-red-500">✕</button>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -453,7 +463,7 @@
                                     {/* GESTIONE ORARIO SETTIMANALE */}
                                     {barbers.find(b => b.name === adminUser) && (
                                         <section className="max-w-4xl mx-auto space-y-6">
-                                            <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none mb-4">Orario Settimanale Predefinito</h3>
+                                            <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none mb-4 tracking-tighter">Mio Orario Settimanale Predefinito</h3>
                                             <div className="grid gap-4">
                                                 {Object.keys(DAYS_NAME).map(day => {
                                                     const currentBarber = barbers.find(b => b.name === adminUser);
@@ -483,7 +493,7 @@
                                     {adminUser === 'SIMONE' && (
                                         <>
                                             <section className="max-w-4xl mx-auto space-y-6 pt-10">
-                                                <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-white/20 pl-4 leading-none">Orari Globali Staff</h3>
+                                                <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-white/20 pl-4 leading-none">Orari Globali Staff (Default)</h3>
                                                 <div className="grid gap-4 opacity-70">
                                                     {settings && Object.keys(settings.openingHours).map(day => {
                                                         const h = settings.openingHours[day];
@@ -499,10 +509,10 @@
                                                 </div>
                                             </section>
 
-                                            <section className="max-w-4xl mx-auto space-y-6">
+                                            <section className="max-w-4xl mx-auto space-y-6 pb-20">
                                                 <div className="flex justify-between items-center border-l-4 border-[#d4af37] pl-4">
-                                                    <h3 className="philia-gold font-black uppercase italic text-xl leading-none">Gestione Team</h3>
-                                                    <button onClick={addNewBarber} className="philia-btn px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-all">Aggiungi Staff +</button>
+                                                    <h3 className="philia-gold font-black uppercase italic text-xl leading-none tracking-tight">Gestione Team</h3>
+                                                    <button onClick={addNewBarber} className="philia-btn px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-all">Aggiungi Staff +</button>
                                                 </div>
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                                     {barbers.map(barber => (
@@ -531,9 +541,9 @@
 
                         {view === 'my-bookings' && (
                             <div className="fade-in max-w-xl mx-auto">
-                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-center sm:text-left">I Tuoi Tagli</h2>
+                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-center sm:text-left tracking-tighter leading-none">I TUOI TAGLI</h2>
                                 {bookings.filter(b => b.customerPhone === clientPhone).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).map(b => (
-                                    <div key={b.id} className="philia-bg p-8 rounded-[40px] border border-white/5 mb-5 shadow-2xl flex justify-between items-center">
+                                    <div key={b.id} className="philia-bg p-8 rounded-[40px] border border-white/5 mb-5 shadow-2xl flex justify-between items-center transition-all hover:scale-[1.02]">
                                         <div>
                                             <p className="philia-gold font-black text-xs uppercase tracking-widest">{b.date}</p>
                                             <h3 className="font-black text-2xl uppercase italic leading-none my-1">{b.serviceName}</h3>
@@ -541,11 +551,11 @@
                                         </div>
                                         <div className="text-right">
                                             <p className="text-4xl font-black philia-gold italic leading-none">{b.time}</p>
-                                            <button onClick={async ()=>{if(confirm("Annullare?")) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete();}} className="text-red-500/30 text-[9px] font-black uppercase mt-2 block w-full text-right underline italic">Annulla</button>
+                                            <button onClick={async ()=>{if(confirm("Vuoi annullare?")) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete();}} className="text-red-500/30 text-[9px] font-black uppercase mt-2 block w-full text-right underline italic">Annulla</button>
                                         </div>
                                     </div>
                                 ))}
-                                {bookings.filter(b => b.customerPhone === clientPhone).length === 0 && <p className="opacity-10 text-center py-20 uppercase font-black tracking-widest italic text-sm tracking-[4px]">Nessun taglio in agenda</p>}
+                                {bookings.filter(b => b.customerPhone === clientPhone).length === 0 && <p className="opacity-10 text-center py-20 uppercase font-black tracking-widest italic text-sm tracking-[4px]">Ancora nessun taglio</p>}
                             </div>
                         )}
                     </div>
@@ -562,7 +572,7 @@
                         </button>
                         <button onClick={() => { if(confirm("Vuoi cambiare utente?")) { localStorage.clear(); location.reload(); }}} className="flex flex-col items-center text-white/10 hover:text-red-500">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                            <span className="text-[7px] uppercase font-bold mt-1 text-center leading-none">CAMBIA<br/>UTENTE</span>
+                            <span className="text-[7px] uppercase font-bold mt-1 text-center leading-none tracking-tighter">CAMBIA<br/>UTENTE</span>
                         </button>
                     </div>
                 </div>
