@@ -105,7 +105,7 @@
 
                 const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
 
-                // Sincronizzazione Orari
+                // Sincronizzazione Orari Globali
                 basePath.collection('config').doc('schedule').onSnapshot(doc => {
                     if (!doc.exists) {
                         const defaultSchedule = {
@@ -174,11 +174,17 @@
             const getFreeSlots = () => {
                 if (!settings) return [];
                 const d = new Date(selectedDate);
-                const hours = settings.openingHours[d.getDay()];
+                const day = d.getDay();
+                
+                // Priorità: orario personale del barbiere, altrimenti orario globale
+                const hours = (selectedBarber.personalSchedule && selectedBarber.personalSchedule[day])
+                    ? selectedBarber.personalSchedule[day]
+                    : settings.openingHours[day];
+
                 if (!hours || !hours.open) return [];
 
                 const now = new Date();
-                const todayStr = now.toLocaleDateString('en-CA'); // format YYYY-MM-DD
+                const todayStr = now.toLocaleDateString('en-CA');
                 const currentHourMin = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
 
                 let slots = [];
@@ -188,7 +194,6 @@
                     const end = new Date(`2000-01-01T${e}:00`);
                     while (cur <= new Date(end.getTime() - 30 * 60000)) {
                         const timeStr = cur.toTimeString().substring(0, 5);
-                        // Filtro slot passati se la data è oggi
                         if (selectedDate !== todayStr || timeStr > currentHourMin) {
                             slots.push(timeStr);
                         }
@@ -209,6 +214,23 @@
                 else if (field === 'pm_start') newHours[day].pm[0] = value;
                 else if (field === 'pm_end') newHours[day].pm[1] = value;
                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('schedule').update({ openingHours: newHours });
+            };
+
+            const updatePersonalSchedule = async (barberId, day, field, value) => {
+                const barber = barbers.find(b => b.id === barberId);
+                const newPersonalSchedule = { ...(barber.personalSchedule || {}) };
+                
+                if (!newPersonalSchedule[day]) {
+                    newPersonalSchedule[day] = { open: true, am: ['09:00', '13:00'], pm: ['15:30', '20:00'] };
+                }
+
+                if (field === 'open') newPersonalSchedule[day].open = value;
+                else if (field === 'am_start') newPersonalSchedule[day].am[0] = value;
+                else if (field === 'am_end') newPersonalSchedule[day].am[1] = value;
+                else if (field === 'pm_start') newPersonalSchedule[day].pm[0] = value;
+                else if (field === 'pm_end') newPersonalSchedule[day].pm[1] = value;
+
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(barberId).update({ personalSchedule: newPersonalSchedule });
             };
 
             const toggleSkill = async (barberId, barberSkills, serviceId) => {
@@ -325,7 +347,6 @@
                                 </div>
                                 
                                 {adminUser === 'SIMONE' ? (
-                                    /* VISTA MASTER PER SIMONE: 3 COLONNE */
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                         {barbers.map(barber => (
                                             <div key={barber.id} className="philia-bg p-5 rounded-[30px] border border-white/5 shadow-xl">
@@ -348,7 +369,6 @@
                                         ))}
                                     </div>
                                 ) : (
-                                    /* VISTA PERSONALE COLLABORATORE */
                                     <div className="space-y-4 max-w-2xl mx-auto">
                                         {bookings.filter(b => b.barberName === adminUser).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).map(b => (
                                             <div key={b.id} className="philia-bg p-6 rounded-[30px] border border-white/5 flex justify-between items-center shadow-xl">
@@ -369,14 +389,45 @@
 
                                 {adminUser === 'SIMONE' && (
                                     <div className="space-y-12">
-                                        {/* GESTIONE ORARI E APERTURE */}
+                                        {/* GESTIONE ORARIO PERSONALE DI SIMONE */}
                                         <section className="max-w-4xl mx-auto space-y-6 pt-10">
-                                            <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none">Gestione Orari e Aperture</h3>
+                                            <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none text-center sm:text-left">Mio Orario Personale (Simone)</h3>
+                                            <p className="text-[10px] text-white/40 uppercase text-center sm:text-left">Se configurato, questo orario sostituirà quello globale solo per Simone.</p>
+                                            <div className="grid gap-4">
+                                                {barbers.find(b => b.name === 'SIMONE') && Object.keys(DAYS_NAME).map(day => {
+                                                    const simoneBarber = barbers.find(b => b.name === 'SIMONE');
+                                                    const h = (simoneBarber.personalSchedule && simoneBarber.personalSchedule[day]) 
+                                                        ? simoneBarber.personalSchedule[day] 
+                                                        : { open: true, am: ['09:00', '13:00'], pm: ['15:30', '20:00'] };
+                                                    
+                                                    return (
+                                                        <div key={day} className="philia-bg p-5 rounded-[25px] border border-[#d4af37]/20">
+                                                            <div className="flex justify-between items-center mb-4">
+                                                                <p className="font-black uppercase italic tracking-widest">{DAYS_NAME[day]}</p>
+                                                                <button onClick={()=>updatePersonalSchedule(simoneBarber.id, day, 'open', !h.open)} className={`text-[10px] font-black px-6 py-2 rounded-full tracking-widest transition-all ${h.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>{h.open ? 'APERTO' : 'CHIUSO'}</button>
+                                                            </div>
+                                                            {h.open && (
+                                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-white/5 pt-4">
+                                                                    <div className="space-y-1"><label className="text-[8px] opacity-30 uppercase font-black">Mattina In</label><input type="time" value={h.am?.[0] || '09:00'} onChange={(e)=>updatePersonalSchedule(simoneBarber.id, day, 'am_start', e.target.value)} className="bg-black/40 p-3 rounded-xl w-full text-xs text-[#d4af37] outline-none" /></div>
+                                                                    <div className="space-y-1"><label className="text-[8px] opacity-30 uppercase font-black">Mattina Out</label><input type="time" value={h.am?.[1] || '13:00'} onChange={(e)=>updatePersonalSchedule(simoneBarber.id, day, 'am_end', e.target.value)} className="bg-black/40 p-3 rounded-xl w-full text-xs text-[#d4af37] outline-none" /></div>
+                                                                    <div className="space-y-1"><label className="text-[8px] opacity-30 uppercase font-black">Pome In</label><input type="time" value={h.pm?.[0] || '15:30'} onChange={(e)=>updatePersonalSchedule(simoneBarber.id, day, 'pm_start', e.target.value)} className="bg-black/40 p-3 rounded-xl w-full text-xs text-[#d4af37] outline-none" /></div>
+                                                                    <div className="space-y-1"><label className="text-[8px] opacity-30 uppercase font-black">Pome Out</label><input type="time" value={h.pm?.[1] || '20:00'} onChange={(e)=>updatePersonalSchedule(simoneBarber.id, day, 'pm_end', e.target.value)} className="bg-black/40 p-3 rounded-xl w-full text-xs text-[#d4af37] outline-none" /></div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </section>
+
+                                        {/* GESTIONE ORARI E APERTURE GLOBALI */}
+                                        <section className="max-w-4xl mx-auto space-y-6 pt-10">
+                                            <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-white/20 pl-4 leading-none">Gestione Orari Globali (Staff)</h3>
                                             <div className="grid gap-4">
                                                 {settings && Object.keys(settings.openingHours).map(day => {
                                                     const h = settings.openingHours[day];
                                                     return (
-                                                        <div key={day} className="philia-bg p-5 rounded-[25px] border border-white/5">
+                                                        <div key={day} className="philia-bg p-5 rounded-[25px] border border-white/5 opacity-80">
                                                             <div className="flex justify-between items-center mb-4">
                                                                 <p className="font-black uppercase italic tracking-widest">{DAYS_NAME[day]}</p>
                                                                 <button onClick={()=>updateSchedule(day, 'open', !h.open)} className={`text-[10px] font-black px-6 py-2 rounded-full tracking-widest transition-all ${h.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>{h.open ? 'APERTO' : 'CHIUSO'}</button>
@@ -434,7 +485,7 @@
                                         <div>
                                             <p className="philia-gold font-black text-xs uppercase tracking-widest">{b.date}</p>
                                             <h3 className="font-black text-2xl uppercase italic leading-none my-1">{b.serviceName}</h3>
-                                            <p className="text-white/40 text-[10px] uppercase font-bold">Con {b.barberName}</p>
+                                            <p className="text-white/40 text-[10px] uppercase font-bold">Con {b.barberName} • Salone Philia</p>
                                         </div>
                                         <div className="text-right">
                                             <p className="text-4xl font-black philia-gold italic leading-none">{b.time}</p>
@@ -451,7 +502,7 @@
                     <div className="fixed bottom-0 left-0 right-0 philia-bg border-t border-[#d4af37]/10 p-5 flex justify-around items-center max-w-xl mx-auto z-50 rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
                         <button onClick={()=>{setView('booking'); setStep(1);}} className={`flex flex-col items-center transition-all ${view === 'booking' ? 'philia-gold scale-125' : 'text-white/20'}`}>
                             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                            <span className="text-[8px] font-black mt-1 uppercase tracking-widest">PRENOTA</span>
+                            <span className="text-[8px] font-black mt-1 uppercase tracking-widest text-center">PRENOTA</span>
                         </button>
                         <button onClick={()=>setView('my-bookings')} className={`flex flex-col items-center transition-all ${view === 'my-bookings' ? 'philia-gold scale-125' : 'text-white/20'}`}>
                             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
