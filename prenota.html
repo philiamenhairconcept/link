@@ -165,27 +165,35 @@
                 const day = d.getDay();
                 let slots = [];
 
+                if (day === 0) return []; // Domenica Chiuso
+
                 if (day === 6) { // Sabato
-                    slots = [
-                        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", // Mattina (chiusura 13:30)
-                        "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00" // Pomeriggio
-                    ];
-                } else if (day >= 2 && day <= 5) { // Martedì - Venerdì
-                    slots = [
-                        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", // Mattina (chiusura 13:00)
-                        "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00" // Pomeriggio
-                    ];
-                } else if (day === 1) { // Lunedì (Opzionale: orari se aperto, altrimenti vuoto)
-                    slots = [
-                        "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
-                        "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00"
-                    ];
+                    // Mattina: Ultimo 13:00 (chiusura 13:30)
+                    const morning = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00"];
+                    // Pomeriggio: Inizio 14:00
+                    const afternoon = ["14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"];
+                    slots = [...morning, ...afternoon];
+                } else { // Feriali (Martedì - Venerdì e Lunedì se previsto)
+                    // Mattina: Ultimo 12:30 (chiusura 13:00)
+                    const morning = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30"];
+                    // Pomeriggio: Inizio 15:30
+                    const afternoon = ["15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"];
+                    slots = [...morning, ...afternoon];
                 }
 
                 const occupied = bookings
                     .filter(b => b.date === selectedDate && b.barberId === selectedBarber.id)
                     .map(b => b.time);
                 return slots.filter(s => !occupied.includes(s));
+            };
+
+            const accessAdmin = () => {
+                const pass = prompt("Inserisci la password amministratore:");
+                if (pass === "philia2024") {
+                    setView('admin');
+                } else if (pass !== null) {
+                    alert("Password errata.");
+                }
             };
 
             if (loading) return <div className="h-screen flex items-center justify-center bg-[#1a1a1a] text-[#d4af37] font-bold tracking-[5px]">PHILIA</div>;
@@ -202,7 +210,7 @@
                             </div>
                         </div>
                         <div className="flex gap-4">
-                            <button onClick={() => setView('admin')} className="text-white/20 hover:text-[#d4af37] transition-colors">
+                            <button onClick={accessAdmin} className="text-white/20 hover:text-[#d4af37] transition-colors">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
                             </button>
                         </div>
@@ -252,7 +260,7 @@
                                             {getFreeSlots().length > 0 ? getFreeSlots().map(slot => (
                                                 <button key={slot} onClick={()=>{setSelectedSlot(slot); setStep(4);}} className={`p-4 rounded-xl font-black text-sm transition-all ${selectedSlot === slot ? 'philia-btn scale-105' : 'bg-[#332d2d] border border-white/5 hover:border-[#d4af37]/50'}`}>{slot}</button>
                                             )) : (
-                                                <div className="col-span-full py-10 text-center opacity-30 italic">Nessun orario disponibile per questa data.</div>
+                                                <div className="col-span-full py-10 text-center opacity-30 italic text-sm">Nessun orario disponibile per questa data o il salone è chiuso.</div>
                                             )}
                                         </div>
                                     </>
@@ -271,10 +279,10 @@
                                                 <input type="tel" value={customerData.phone} onChange={(e)=>setCustomerData({...customerData, phone: e.target.value})} placeholder="333 000 0000" className="bg-transparent w-full text-white font-bold outline-none" />
                                             </div>
                                             
-                                            <div className="p-6 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/20 rounded-3xl mt-8">
-                                                <p className="text-[10px] philia-gold font-black uppercase text-center mb-2 tracking-[3px]">Riepilogo</p>
-                                                <p className="text-center font-bold text-lg">{selectedService.name}</p>
-                                                <p className="text-center text-white/50">{selectedBarber.name} • {selectedDate} • {selectedSlot}</p>
+                                            <div className="p-6 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/20 rounded-3xl mt-8 text-center">
+                                                <p className="text-[10px] philia-gold font-black uppercase mb-2 tracking-[3px]">Riepilogo</p>
+                                                <p className="font-bold text-lg">{selectedService.name}</p>
+                                                <p className="text-white/50 text-sm">{selectedBarber.name} • {selectedDate} • {selectedSlot}</p>
                                             </div>
 
                                             <button onClick={handleConfirm} className="w-full mt-6 philia-btn p-6 rounded-2xl font-black text-xl uppercase tracking-tighter shadow-2xl active:scale-95 transition-all">CONFERMA E PRENOTA</button>
@@ -286,7 +294,7 @@
 
                         {view === 'my-bookings' && (
                             <div className="fade-in max-w-xl mx-auto">
-                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase italic">I Miei Appuntamenti</h2>
+                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase">I Miei Appuntamenti</h2>
                                 {bookings.filter(b => b.userId === user?.uid).length === 0 ? (
                                     <div className="text-center p-12 philia-bg rounded-3xl opacity-30">
                                         <p className="text-sm font-bold uppercase tracking-widest">Nessun appuntamento attivo</p>
