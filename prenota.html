@@ -34,11 +34,15 @@
 
         // --- INIZIALIZZAZIONE FIREBASE ---
         // Utilizziamo le variabili d'ambiente fornite dall'ambiente Philia
-        const firebaseConfig = JSON.parse(__firebase_config);
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'philia-booking-v2';
+        const firebaseConfig = {
+  apiKey: "AIzaSyCvNKLOIqAz9ygOJ1Cpl4V94xm3VeKhqow",
+  authDomain: "philia-men-hair-concept.firebaseapp.com",
+  projectId: "philia-men-hair-concept",
+  storageBucket: "philia-men-hair-concept.firebasestorage.app",
+  messagingSenderId: "470631594940",
+  appId: "1:470631594940:web:a259b8ce4a08fc2a0d49b9",
+  measurementId: "G-X5V5J1JJC1"
+};
 
         const MASTER_SERVICES = [
             { id: 'perm_ricci', name: 'Permanente Ricci', price: 30, duration: 60, desc: 'Prezzo variabile in base alla lunghezza.' },
