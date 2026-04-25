@@ -285,23 +285,28 @@
             if (!isIdentified) return (
                 <div className="h-screen flex items-center justify-center bg-[#1a1a1a] p-6 text-center text-white">
                     <div className="fade-in max-w-sm w-full philia-bg p-10 rounded-[40px] border border-[#d4af37]/20 shadow-2xl">
-                        <img src="logo.png" alt="Philia Logo" className="h-20 mx-auto mb-6" onError={(e) => e.target.style.display='none'} />
-                        <p className="text-white/30 text-[10px] uppercase tracking-[4px] mb-10 leading-relaxed text-center">Benvenuto nel Salone</p>
+                        {/* Immagine Logo al posto della scritta testuale */}
+                        <img src="logo.png" alt="Philia Logo" className="h-24 mx-auto mb-10 object-contain" onError={(e) => e.target.style.display='none'} />
+                        
+                        <p className="text-white/30 text-[10px] uppercase tracking-[4px] mb-10 leading-relaxed text-center italic">Men Hair Concept</p>
                         <div className="space-y-4 mb-8 text-left">
-                            <input type="text" value={clientName} onChange={(e)=>setClientName(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:border-[#d4af37]" placeholder="Nome" />
+                            <input type="text" value={clientName} onChange={(e)=>setClientName(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:border-[#d4af37]" placeholder="Nome e Cognome" />
                             <input type="tel" value={clientPhone} onChange={(e)=>setClientPhone(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:border-[#d4af37]" placeholder="Cellulare" />
                         </div>
-                        <button onClick={saveIdentity} className="w-full philia-btn p-5 rounded-2xl font-black uppercase text-xs shadow-xl hover:scale-105 transition-all">Accedi</button>
-                        <button onClick={()=>{ if(prompt("Password Staff:") === "philia2024") { setIsIdentified(true); setView('admin-login'); }}} className="mt-10 text-[9px] text-white/10 uppercase tracking-widest block mx-auto">Area Staff</button>
+                        <button onClick={saveIdentity} className="w-full philia-btn p-5 rounded-2xl font-black uppercase text-xs shadow-xl hover:scale-105 transition-all">Entra nel Salone</button>
+                        <button onClick={()=>{ if(prompt("Password Staff:") === "philia2024") { setIsIdentified(true); setView('admin-login'); }}} className="mt-10 text-[9px] text-white/10 uppercase tracking-widest block mx-auto hover:text-[#d4af37] transition-colors">Accesso Riservato Team</button>
                     </div>
                 </div>
             );
 
             return (
-                <div className="app-container min-h-screen pb-24 shadow-2xl relative bg-[#1a1a1a] flex flex-col overflow-hidden text-white">
+                <div className="app-container min-h-screen pb-24 shadow-2xl relative bg-[#1a1a1a] flex flex-col overflow-hidden text-white text-white">
                     {/* Header */}
                     <div className="p-6 philia-bg border-b border-[#d4af37]/20 flex justify-between items-center sticky top-0 z-50">
-                        <h1 className="text-xl font-black philia-gold uppercase italic leading-none">Philia</h1>
+                        <div className="flex items-center gap-3">
+                            <img src="logo.png" alt="Philia" className="h-8 w-auto" onError={(e) => e.target.style.display='none'} />
+                            <h1 className="text-xl font-black philia-gold uppercase italic leading-none">Philia</h1>
+                        </div>
                         <button onClick={() => { if(prompt("Password:") === "philia2024") setView('admin-login'); }} className="text-white/10 hover:text-[#d4af37] p-2 transition-colors">⚙️</button>
                     </div>
 
@@ -362,10 +367,10 @@
                         )}
 
                         {view === 'admin-login' && (
-                            <div className="fade-in max-w-xl mx-auto py-10 text-center text-white">
+                            <div className="fade-in max-w-xl mx-auto py-10 text-center text-white text-white">
                                 <h2 className="text-3xl font-black philia-gold mb-12 italic uppercase tracking-widest leading-none">Area Staff</h2>
                                 <div className="grid gap-4">
-                                    <button onClick={()=>{setAdminUser('SIMONE'); setView('admin'); setAdminSubView('agenda');}} className="w-full philia-btn p-8 rounded-3xl font-black text-2xl italic uppercase shadow-2xl scale-105 transition-all">SIMONE (PROPRIETARIO)</button>
+                                    <button onClick={()=>{setAdminUser('SIMONE'); setView('admin'); setAdminSubView('agenda');}} className="w-full philia-btn p-8 rounded-3xl font-black text-2xl italic uppercase shadow-2xl scale-105 transition-all">SIMONE (MASTER)</button>
                                     {barbers.filter(b => b.name !== 'SIMONE').map(b => (
                                         <button key={b.id} onClick={()=>{setAdminUser(b.name); setView('admin');}} className="w-full philia-bg p-6 rounded-3xl font-black text-xl italic uppercase border border-white/10 hover:border-[#d4af37] transition-all">{b.name}</button>
                                     ))}
@@ -375,19 +380,19 @@
                         )}
 
                         {view === 'admin' && (
-                            <div className="space-y-6 pb-20 fade-in text-white">
+                            <div className="space-y-6 pb-20 fade-in text-white text-white">
                                 {/* Navigazione Superiore Simone Master */}
                                 {adminUser === 'SIMONE' && (
                                     <div className="flex gap-2 p-2 bg-black/40 rounded-3xl mb-8 border border-white/5 shadow-2xl">
                                         <button 
                                             onClick={() => setAdminSubView('agenda')} 
-                                            className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs transition-all ${adminSubView === 'agenda' ? 'philia-btn scale-105 shadow-xl' : 'text-white/20'}`}
+                                            className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs transition-all ${adminSubView === 'agenda' ? 'philia-btn shadow-xl scale-105' : 'text-white/20'}`}
                                         >
                                             Agenda
                                         </button>
                                         <button 
                                             onClick={() => setAdminSubView('gestione')} 
-                                            className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs transition-all ${adminSubView === 'gestione' ? 'philia-btn scale-105 shadow-xl' : 'text-white/20'}`}
+                                            className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs transition-all ${adminSubView === 'gestione' ? 'philia-btn shadow-xl scale-105' : 'text-white/20'}`}
                                         >
                                             Gestione Salone
                                         </button>
