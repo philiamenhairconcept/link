@@ -285,10 +285,11 @@
             if (!isIdentified) return (
                 <div className="h-screen flex items-center justify-center bg-[#1a1a1a] p-6 text-center text-white">
                     <div className="fade-in max-w-sm w-full philia-bg p-10 rounded-[40px] border border-[#d4af37]/20 shadow-2xl">
-                        {/* Immagine Logo ingrandita (w-72 invece di h-24) */}
+                        {/* Immagine Logo ingrandita (w-72) */}
                         <img src="logo.png" alt="Philia Logo" className="w-72 mx-auto mb-10 object-contain" onError={(e) => e.target.style.display='none'} />
                         
-                        <p className="text-white/30 text-[10px] uppercase tracking-[4px] mb-10 leading-relaxed text-center italic">Men Hair Concept</p>
+                        <p className="text-white/30 text-xs uppercase tracking-[6px] mb-10 leading-relaxed text-center italic font-black">Benvenuto!</p>
+                        
                         <div className="space-y-4 mb-8 text-left">
                             <input type="text" value={clientName} onChange={(e)=>setClientName(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:border-[#d4af37]" placeholder="Nome e Cognome" />
                             <input type="tel" value={clientPhone} onChange={(e)=>setClientPhone(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:border-[#d4af37]" placeholder="Cellulare" />
@@ -380,7 +381,7 @@
                         )}
 
                         {view === 'admin' && (
-                            <div className="space-y-6 pb-20 fade-in text-white">
+                            <div className="space-y-6 pb-20 fade-in text-white text-white">
                                 {/* Navigazione Superiore Simone Master */}
                                 {adminUser === 'SIMONE' && (
                                     <div className="flex gap-2 p-2 bg-black/40 rounded-3xl mb-8 border border-white/5 shadow-2xl">
