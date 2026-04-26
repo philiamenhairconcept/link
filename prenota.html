@@ -58,11 +58,28 @@
         const db = firebase.firestore();
         const appId = "philia-v2-production";
 
+        // --- LISTA COMPLETA 20 SERVIZI ---
         const INITIAL_SERVICES = [
-            { id: 'perm_ricci', name: 'Permanente Ricci', price: 30, duration: 60, desc: 'Per un look dinamico' },
-            { id: 'completo', name: 'Completo (Taglio+Barba+Shampoo)', price: 20, duration: 30, desc: 'Il servizio top' },
-            { id: 'taglio_shamp', name: 'Taglio + Shampoo', price: 15, duration: 30, desc: 'Classico Philia' },
-            { id: 'taglio_uomo', name: 'Taglio Uomo', price: 10, duration: 30, desc: 'Solo taglio' }
+            { id: 'perm_ricci', name: 'Permanente Ricci', price: 30, duration: 60, desc: 'Per un look dinamico e capelli ricci definiti.' },
+            { id: 'comp_scrub', name: 'Completo + Scrub Viso', price: 30, duration: 45, desc: 'Il pacchetto relax completo per pelle e capelli.' },
+            { id: 'stira_bras', name: 'Stiratura Brasiliana', price: 30, duration: 60, desc: 'Liscio perfetto e duraturo con trattamento professionale.' },
+            { id: 'comp_tinta', name: 'Completo + Tinta', price: 27, duration: 45, desc: 'Servizio completo di taglio, barba e colorazione.' },
+            { id: 'schia_cap', name: 'Schiaritura Capelli', price: 20, duration: 60, desc: 'Effetto luce naturale per i tuoi capelli.' },
+            { id: 'stira_chim', name: 'Stiratura Chimica', price: 20, duration: 60, desc: 'Controllo totale dei capelli ribelli.' },
+            { id: 'tratt_ker', name: 'Trattamento Keratina', price: 20, duration: 30, desc: 'Ricostruzione profonda per capelli sani e forti.' },
+            { id: 'tratt_crespo', name: 'Trattamento Disciplinare Crespo', price: 20, duration: 30, desc: 'Elimina il crespo e dona morbidezza.' },
+            { id: 'completo', name: 'Completo', price: 20, duration: 30, desc: 'Il classico: Taglio, Barba e Shampoo.' },
+            { id: 'taglio_shamp', name: 'Taglio + Shampoo', price: 15, duration: 30, desc: 'Taglio professionale con lavaggio relax.' },
+            { id: 'taglio_barba', name: 'Taglio + Barba', price: 15, duration: 45, desc: 'Sincronizza il tuo look: capelli e barba curati.' },
+            { id: 'ras_scrub', name: 'Rasatura Barba + Scrub Viso', price: 15, duration: 30, desc: 'Pelle rigenerata e barba perfetta.' },
+            { id: 'taglio_bimbo_sh', name: 'Taglio Bimbo + Shampoo', price: 13, duration: 30, desc: 'Servizio dedicato ai più piccoli con lavaggio.' },
+            { id: 'ras_tinta_barba', name: 'Rasatura + Tinta Barba', price: 12, duration: 15, desc: 'Definizione e colore per una barba impeccabile.' },
+            { id: 'taglio_uomo', name: 'Taglio Uomo', price: 10, duration: 30, desc: 'Taglio classico o moderno eseguito a regola d''arte.' },
+            { id: 'barba_shamp', name: 'Barba + Shampoo', price: 10, duration: 30, desc: 'Cura specifica per la barba con detersione.' },
+            { id: 'taglio_bambino', name: 'Taglio Bambino', price: 8, duration: 30, desc: 'Taglio veloce e divertente per bambini.' },
+            { id: 'barba_panno', name: 'Barba Panno Caldo', price: 8, duration: 30, desc: 'Il rituale tradizionale Philia con panno caldo.' },
+            { id: 'shampoo', name: 'Shampoo', price: 5, duration: 15, desc: 'Lavaggio purificante con massaggio cutaneo.' },
+            { id: 'rasatura_barba', name: 'Rasatura Barba', price: 5, duration: 15, desc: 'Rifinitura rapida e precisa della tua barba.' }
         ];
 
         const DAYS_NAME = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
@@ -102,6 +119,7 @@
 
                 const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
 
+                // Listener Orari Salone
                 basePath.collection('config').doc('schedule').onSnapshot(doc => {
                     if (doc.exists) setSettings(doc.data());
                     else {
@@ -120,19 +138,23 @@
                     }
                 });
 
+                // Listener Catalogo Servizi (Con caricamento iniziale ordinato)
                 basePath.collection('services').onSnapshot(snap => {
                     let data = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                    if (data.length === 0 && adminUser === 'SIMONE') {
+                    if (data.length === 0) {
                         INITIAL_SERVICES.forEach(s => basePath.collection('services').add(s));
                     }
+                    // Ordina dal prezzo più alto al più basso
                     setServices(data.sort((a,b) => b.price - a.price));
                 });
 
+                // Listener Barbieri
                 basePath.collection('barbers').onSnapshot(snap => {
                     let data = snap.docs.map(d => ({id: d.id, ...d.data()}));
                     setBarbers(data.sort((a,b) => a.order - b.order));
                 });
 
+                // Listener Prenotazioni
                 basePath.collection('bookings').onSnapshot(snap => {
                     setBookings(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 });
@@ -298,7 +320,7 @@
                             <input type="tel" value={clientPhone} onChange={(e)=>setClientPhone(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:border-[#d4af37]" placeholder="Cellulare" />
                         </div>
                         <button onClick={saveIdentity} className="w-full philia-btn p-5 rounded-2xl font-black uppercase text-xs shadow-xl hover:scale-105 transition-all text-[#332d2d]">Entra</button>
-                        <button onClick={()=>{ if(prompt("Password Staff:") === "philia2024") { setIsIdentified(true); setView('admin-login'); }}} className="mt-10 text-[9px] text-white/10 uppercase tracking-widest block mx-auto hover:text-[#d4af37]">Area Staff</button>
+                        <button onClick={()=>{ if(prompt("Password Staff:") === "philia2024") { setIsIdentified(true); setView('admin-login'); }}} className="mt-10 text-[9px] text-white/10 uppercase tracking-widest block mx-auto">Area Staff</button>
                     </div>
                 </div>
             );
@@ -332,7 +354,7 @@
                                         <div className="grid gap-3">
                                             {services.filter(s => (selectedBarber.skills || []).includes(s.id)).map(s => (
                                                 <button key={s.id} onClick={()=>{setSelectedService(s); setStep(3);}} className="w-full philia-bg p-6 rounded-2xl border border-white/5 flex justify-between items-center hover:border-[#d4af37] transition-all text-left">
-                                                    <div><div className="font-bold text-lg uppercase">{s.name}</div><p className="text-[10px] text-white/40">{s.desc}</p></div>
+                                                    <div><div className="font-bold text-lg uppercase leading-tight">{s.name}</div><p className="text-[10px] text-white/40 mt-1">{s.desc}</p></div>
                                                     <p className="philia-gold font-black text-2xl italic">€{s.price}</p>
                                                 </button>
                                             ))}
@@ -377,7 +399,7 @@
                                     {barbers.filter(b => b.name !== 'SIMONE').map(b => (
                                         <button key={b.id} onClick={()=>{setAdminUser(b.name); setView('admin');}} className="w-full philia-bg p-6 rounded-3xl font-black text-xl italic border border-white/10 hover:border-[#d4af37] transition-all">{b.name}</button>
                                     ))}
-                                    <button onClick={()=>setView('booking')} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest">Esci</button>
+                                    <button onClick={()=>setView('booking')} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest">Torna al Salone</button>
                                 </div>
                             </div>
                         )}
@@ -438,7 +460,11 @@
                                                 <div className="grid gap-4">
                                                     {services.map(s => (
                                                         <div key={s.id} className="philia-bg p-6 rounded-3xl border border-white/5 flex justify-between items-center group">
-                                                            <div><p className="font-black text-lg uppercase leading-none">{s.name}</p><p className="text-[10px] text-white/30">€{s.price} • {s.duration} min</p></div>
+                                                            <div className="text-left">
+                                                                <p className="font-black text-lg uppercase leading-none mb-1">{s.name}</p>
+                                                                <p className="text-[10px] text-white/50 italic mb-2">{s.desc}</p>
+                                                                <p className="text-[10px] text-[#d4af37] uppercase font-bold">€{s.price} • {s.duration} min</p>
+                                                            </div>
                                                             <div className="flex gap-2"><button onClick={()=>setEditingService(s)} className="p-3 bg-blue-500/10 text-blue-400 rounded-xl text-[10px] font-black uppercase">Edit</button><button onClick={()=>deleteService(s.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl text-[10px] font-black uppercase">Del</button></div>
                                                         </div>
                                                     ))}
