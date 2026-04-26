@@ -156,7 +156,7 @@
                 const booking = {
                     customerName: clientName, customerPhone: clientPhone,
                     barberId: selectedBarber.id, barberName: selectedBarber.name,
-                    serviceId: selectedService.id || selectedService.firestoreId, serviceName: selectedService.name,
+                    serviceId: selectedService.firestoreId || selectedService.id, serviceName: selectedService.name,
                     date: selectedDate, time: selectedSlot,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 };
@@ -223,16 +223,12 @@
             };
 
             const forceResetCatalog = async () => {
-                if(confirm("ATTENZIONE: Questa operazione eliminerà TUTTI i servizi attuali e ricaricherà i 20 servizi Philia originali. Procedere?")) {
+                if(confirm("Questa operazione caricherà i 20 servizi di base. Confermi?")) {
                     const coll = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services');
-                    const currentSnap = await coll.get();
-                    const batch = db.batch();
-                    currentSnap.docs.forEach(doc => batch.delete(doc.ref));
-                    await batch.commit();
                     for (const s of INITIAL_SERVICES) {
                         await coll.add(s);
                     }
-                    alert("Listino resettato con successo!");
+                    alert("Listino resettato!");
                 }
             };
 
@@ -315,7 +311,7 @@
 
             return (
                 <div className="app-container min-h-screen pb-24 shadow-2xl relative bg-[#1a1a1a] flex flex-col overflow-hidden text-white">
-                    {/* Header */}
+                    {/* Header Permanente */}
                     <div className="p-6 philia-bg border-b border-[#d4af37]/20 flex justify-between items-center sticky top-0 z-50">
                         <div className="flex items-center gap-3">
                             <img src="logo.png" alt="Philia" className="h-8 w-auto" />
@@ -383,20 +379,20 @@
                         )}
 
                         {view === 'admin-login' && (
-                            <div className="fade-in max-w-xl mx-auto py-10 text-center">
+                            <div className="fade-in max-w-xl mx-auto py-10 text-center text-white">
                                 <h2 className="text-3xl font-black philia-gold mb-12 italic uppercase tracking-widest leading-none">Accesso Team</h2>
                                 <div className="grid gap-4">
                                     <button onClick={()=>{setAdminUser('SIMONE'); setView('admin'); setAdminSubView('agenda');}} className="w-full philia-btn p-8 rounded-3xl font-black text-2xl italic uppercase shadow-2xl text-[#332d2d]">SIMONE (MASTER)</button>
                                     {barbers.filter(b => b.name !== 'SIMONE').map(b => (
                                         <button key={b.id} onClick={()=>{setAdminUser(b.name); setView('admin'); setAdminSubView('agenda');}} className="w-full philia-bg p-6 rounded-3xl font-black text-xl italic border border-white/10 hover:border-[#d4af37] transition-all text-center uppercase">{b.name}</button>
                                     ))}
-                                    <button onClick={()=>setView('booking')} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest hover:text-white transition-colors">Torna al Salone</button>
+                                    <button onClick={()=>setView('booking')} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest">Torna al Salone</button>
                                 </div>
                             </div>
                         )}
 
                         {view === 'admin' && (
-                            <div className="space-y-6 pb-20 fade-in text-white">
+                            <div className="space-y-6 pb-20 fade-in text-white text-white">
                                 {/* Navigazione Superiore Simone Master */}
                                 {adminUser === 'SIMONE' && (
                                     <div className="flex gap-2 p-2 bg-black/40 rounded-3xl mb-8 border border-white/5 shadow-2xl">
@@ -410,59 +406,98 @@
                                     <h2 className="text-2xl font-black italic uppercase leading-none tracking-tighter">
                                         {adminUser === 'SIMONE' ? (adminSubView === 'agenda' ? 'AGENDONE TEAM' : (adminSubView === 'gestione' ? 'SETTAGGI SALONE' : 'LISTINO SERVIZI')) : `AGENDA ${adminUser}`}
                                     </h2>
-                                    <button onClick={()=>{setAdminUser(null); setView('booking');}} className="philia-gold text-xs font-bold uppercase border border-[#d4af37]/30 px-6 py-3 rounded-full">Logout</button>
+                                    <button onClick={()=>{setAdminUser(null); setView('booking');}} className="philia-gold text-xs font-bold uppercase border border-[#d4af37]/30 px-6 py-3 rounded-full">Esci</button>
                                 </div>
                                 
                                 {adminUser === 'SIMONE' ? (
                                     <div className="space-y-12">
                                         {/* --- AGENDONE GOOGLE CALENDAR STYLE --- */}
                                         {adminSubView === 'agenda' && (
-                                            <div className="space-y-6 fade-in">
-                                                {/* Navigazione Data */}
-                                                <div className="flex flex-col sm:flex-row justify-between items-center bg-black/40 p-4 rounded-3xl border border-white/5 gap-4">
-                                                    <div className="flex items-center gap-4">
-                                                        <button onClick={() => {
-                                                            const d = new Date(adminAgendaDate); d.setDate(d.getDate() - 1);
-                                                            setAdminAgendaDate(d.toLocaleDateString('en-CA'));
-                                                        }} className="p-3 hover:bg-white/10 rounded-full philia-gold font-black text-xl">←</button>
-                                                        <input type="date" value={adminAgendaDate} onChange={(e) => setAdminAgendaDate(e.target.value)} className="bg-transparent text-[#d4af37] font-black text-xl outline-none text-center" />
-                                                        <button onClick={() => {
-                                                            const d = new Date(adminAgendaDate); d.setDate(d.getDate() + 1);
-                                                            setAdminAgendaDate(d.toLocaleDateString('en-CA'));
-                                                        }} className="p-3 hover:bg-white/10 rounded-full philia-gold font-black text-xl">→</button>
+                                            <div className="space-y-6 fade-in text-white">
+                                                {/* Navigazione Data Potenziata */}
+                                                <div className="flex flex-col md:flex-row justify-between items-center bg-[#332d2d] p-6 rounded-[35px] border border-[#d4af37]/20 shadow-2xl gap-6">
+                                                    <div className="flex items-center gap-6">
+                                                        <button 
+                                                            onClick={() => {
+                                                                const d = new Date(adminAgendaDate + 'T00:00:00');
+                                                                d.setDate(d.getDate() - 1);
+                                                                setAdminAgendaDate(d.toISOString().split('T')[0]);
+                                                            }}
+                                                            className="w-12 h-12 flex items-center justify-center bg-black/20 hover:bg-[#d4af37] hover:text-[#332d2d] rounded-full transition-all border border-[#d4af37]/20 font-black text-xl"
+                                                        >←</button>
+                                                        
+                                                        <div className="text-center">
+                                                            <input 
+                                                                type="date" 
+                                                                value={adminAgendaDate} 
+                                                                onChange={(e) => setAdminAgendaDate(e.target.value)} 
+                                                                className="bg-transparent text-[#d4af37] font-black text-2xl outline-none text-center cursor-pointer" 
+                                                            />
+                                                            <p className="text-[10px] uppercase philia-gold font-bold tracking-[3px] mt-1">
+                                                                {new Date(adminAgendaDate + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long' })}
+                                                            </p>
+                                                        </div>
+
+                                                        <button 
+                                                            onClick={() => {
+                                                                const d = new Date(adminAgendaDate + 'T00:00:00');
+                                                                d.setDate(d.getDate() + 1);
+                                                                setAdminAgendaDate(d.toISOString().split('T')[0]);
+                                                            }}
+                                                            className="w-12 h-12 flex items-center justify-center bg-black/20 hover:bg-[#d4af37] hover:text-[#332d2d] rounded-full transition-all border border-[#d4af37]/20 font-black text-xl"
+                                                        >→</button>
                                                     </div>
-                                                    <button onClick={() => setAdminAgendaDate(new Date().toLocaleDateString('en-CA'))} className="text-[10px] philia-gold font-black uppercase tracking-widest border border-[#d4af37]/30 px-6 py-3 rounded-xl hover:bg-[#d4af37] hover:text-[#332d2d] transition-all">Oggi</button>
+                                                    <button 
+                                                        onClick={() => setAdminAgendaDate(new Date().toISOString().split('T')[0])} 
+                                                        className="px-8 py-3 bg-[#d4af37] text-[#332d2d] rounded-2xl font-black uppercase text-xs tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg"
+                                                    >Oggi</button>
                                                 </div>
 
-                                                {/* Colonne Barbieri */}
-                                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                                {/* Griglia Calendario (Colonne per Staff) */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                                     {barbers.map(barber => {
                                                         const dayBookings = bookings
                                                             .filter(b => b.barberId === barber.id && b.date === adminAgendaDate)
                                                             .sort((a, b) => a.time.localeCompare(b.time));
 
                                                         return (
-                                                            <div key={barber.id} className="philia-bg rounded-[30px] border border-white/5 flex flex-col min-h-[400px] shadow-2xl">
-                                                                <div className="p-5 border-b border-[#d4af37]/20 text-center bg-black/20 rounded-t-[30px]">
-                                                                    <h4 className="philia-gold font-black uppercase italic tracking-tighter text-xl leading-none">{barber.name}</h4>
-                                                                    <p className="text-[9px] text-white/30 uppercase font-bold mt-1">{dayBookings.length} appuntamenti</p>
+                                                            <div key={barber.id} className="philia-bg rounded-[40px] border border-white/5 flex flex-col min-h-[500px] shadow-2xl overflow-hidden text-white">
+                                                                <div className="p-6 border-b border-[#d4af37]/20 text-center bg-gradient-to-b from-black/20 to-transparent">
+                                                                    <h4 className="philia-gold font-black uppercase italic tracking-tighter text-2xl leading-none">{barber.name}</h4>
+                                                                    <div className="mt-2 flex items-center justify-center gap-2">
+                                                                        <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"></span>
+                                                                        <p className="text-[10px] text-white/30 uppercase font-black tracking-widest">{dayBookings.length} APPUNTAMENTI</p>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="p-4 space-y-3 flex-1 overflow-y-auto max-h-[500px] no-scrollbar">
+                                                                
+                                                                <div className="p-5 space-y-4 flex-1 overflow-y-auto max-h-[600px] no-scrollbar bg-black/10">
                                                                     {dayBookings.map(b => (
-                                                                        <div key={b.id} className="bg-black/40 p-4 rounded-2xl border-l-4 border-[#d4af37] relative group text-left animate-in fade-in zoom-in duration-300">
-                                                                            <div className="flex justify-between items-start mb-1">
-                                                                                <p className="philia-gold font-black text-lg italic leading-none">{b.time}</p>
-                                                                                <button onClick={async () => { if(confirm("Eliminare l'appuntamento?")) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete(); }} className="text-red-500/20 group-hover:text-red-500 transition-colors">✕</button>
+                                                                        <div key={b.id} className="bg-[#1a1a1a] p-5 rounded-[25px] border-l-8 border-[#d4af37] relative group hover:bg-[#252525] transition-all shadow-lg text-left">
+                                                                            <div className="flex justify-between items-start mb-2">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <div className="w-2 h-2 bg-[#d4af37] rounded-full"></div>
+                                                                                    <p className="philia-gold font-black text-xl italic leading-none">{b.time}</p>
+                                                                                </div>
+                                                                                <button 
+                                                                                    onClick={async () => { if(confirm("Cancellare questo appuntamento?")) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete(); }} 
+                                                                                    className="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500/30 group-hover:text-red-500 rounded-full transition-colors"
+                                                                                >✕</button>
                                                                             </div>
-                                                                            <p className="font-bold uppercase text-sm leading-tight text-white mb-1">{b.customerName}</p>
-                                                                            <p className="text-[10px] text-white/40 uppercase font-bold line-clamp-1 italic">{b.serviceName}</p>
-                                                                            <p className="text-green-500 text-[10px] font-bold mt-2 tracking-widest">{b.customerPhone}</p>
+                                                                            <p className="font-black uppercase text-base leading-tight text-white mb-1">{b.customerName}</p>
+                                                                            <p className="text-[10px] text-white/40 uppercase font-bold line-clamp-1 italic mb-3">{b.serviceName}</p>
+                                                                            <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5">
+                                                                                <a href={`tel:${b.customerPhone}`} className="text-green-500 text-[11px] font-black tracking-widest flex items-center gap-1">
+                                                                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 005.454 5.455l.774-1.548a1 1 0 011.06-.539l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"></path></svg>
+                                                                                    {b.customerPhone}
+                                                                                </a>
+                                                                                <p className="text-[9px] text-white/20 font-bold uppercase tracking-tighter">Philia Concept</p>
+                                                                            </div>
                                                                         </div>
                                                                     ))}
                                                                     {dayBookings.length === 0 && (
-                                                                        <div className="h-full flex flex-col items-center justify-center opacity-10 py-20">
+                                                                        <div className="h-40 flex flex-col items-center justify-center opacity-10 py-10">
                                                                             <IconCalendar />
-                                                                            <p className="uppercase text-[9px] font-black italic mt-2">Libero</p>
+                                                                            <p className="uppercase text-[10px] font-black italic mt-3 tracking-widest">Nessun impegno</p>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -475,10 +510,10 @@
 
                                         {adminSubView === 'catalogo' && (
                                             <div className="space-y-12 fade-in max-w-4xl mx-auto">
-                                                <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] space-y-6 text-center">
+                                                <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] space-y-6 text-center text-white">
                                                     <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
                                                         <h3 className="philia-gold font-black uppercase text-sm">Nuovo o Modifica Servizio</h3>
-                                                        <button onClick={forceResetCatalog} className="bg-red-600/20 text-red-500 border border-red-500/50 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Resetta e Carica 20 Servizi Philia</button>
+                                                        <button onClick={forceResetCatalog} className="bg-red-600/20 text-red-500 border border-red-500/50 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Ricarica Listino 20 Servizi</button>
                                                     </div>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                                                         <input type="text" placeholder="Nome Servizio" value={editingService.name} onChange={(e)=>setEditingService({...editingService, name: e.target.value})} className="bg-black/40 p-4 rounded-xl outline-none border border-white/10" />
@@ -491,7 +526,7 @@
                                                 <div className="grid gap-4">
                                                     <p className="text-[10px] philia-gold font-black uppercase tracking-[4px] text-left ml-2 italic">Tuo Listino Attuale</p>
                                                     {services.map(s => (
-                                                        <div key={s.firestoreId} className="philia-bg p-6 rounded-3xl border border-white/5 flex justify-between items-center group text-left">
+                                                        <div key={s.firestoreId} className="philia-bg p-6 rounded-3xl border border-white/5 flex justify-between items-center group text-left text-white">
                                                             <div className="flex-1 pr-4">
                                                                 <p className="font-black text-lg uppercase leading-none mb-1">{s.name}</p>
                                                                 <p className="text-[11px] text-white/50 italic mb-2 leading-relaxed">{s.desc}</p>
@@ -509,7 +544,7 @@
 
                                         {adminSubView === 'gestione' && (
                                             <div className="space-y-12 fade-in">
-                                                <section className="max-w-4xl mx-auto p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px]">
+                                                <section className="max-w-4xl mx-auto p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] text-white">
                                                     <h3 className="philia-gold font-black uppercase italic mb-6 text-center">Eccezioni Calendario</h3>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left">
                                                         <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5">
@@ -526,10 +561,10 @@
                                                             <button onClick={()=>addDateOverride(barbers.find(b => b.name === 'SIMONE').id)} className="w-full philia-btn p-5 rounded-2xl font-black text-xs uppercase shadow-xl text-[#332d2d]">Solo Simone</button>
                                                             <button onClick={()=>addDateOverride(null, true)} className="w-full bg-white/10 p-5 rounded-2xl font-black text-xs uppercase text-white hover:bg-white/20 transition-all">Tutto Salone</button>
                                                         </div>
-                                                        <div className="max-h-[350px] overflow-y-auto space-y-3 no-scrollbar text-left">
+                                                        <div className="max-h-[350px] overflow-y-auto space-y-3 no-scrollbar">
                                                             {Object.entries(settings?.dateOverrides || {}).sort().map(([date, h]) => (
-                                                                <div key={date} className="bg-[#d4af37]/10 p-4 rounded-2xl border border-[#d4af37]/30 flex justify-between items-center group">
-                                                                    <div><p className="font-black text-sm philia-gold">{date} (TUTTI)</p><p className="text-[9px] uppercase">{h.open ? `AM ${h.am[0]}-${h.am[1]} PM ${h.pm[0]}-${h.pm[1]}` : 'Chiuso'}</p></div>
+                                                                <div key={date} className="bg-[#d4af37]/10 p-4 rounded-2xl border border-[#d4af37]/30 flex justify-between items-center group text-white">
+                                                                    <div><p className="font-black text-sm philia-gold text-white">{date} (TUTTI)</p><p className="text-[9px] uppercase text-white/50">{h.open ? `AM ${h.am[0]}-${h.am[1]} PM ${h.pm[0]}-${h.pm[1]}` : 'Chiuso'}</p></div>
                                                                     <button onClick={()=>removeDateOverride(null, date, true)} className="text-red-500 font-black px-2 hover:scale-125 transition-transform">✕</button>
                                                                 </div>
                                                             ))}
@@ -537,17 +572,17 @@
                                                     </div>
                                                 </section>
 
-                                                <section className="max-w-4xl mx-auto space-y-6 text-left">
+                                                <section className="max-w-4xl mx-auto space-y-6 text-left text-white">
                                                     <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-white/20 pl-4 leading-none">Orari Default Salone</h3>
                                                     <div className="grid gap-4 opacity-70">
                                                         {settings && Object.keys(settings.openingHours).map(day => (
                                                             <div key={day} className="philia-bg p-5 rounded-[25px] border border-white/5 flex flex-col gap-4 text-white">
-                                                                <div className="flex justify-between items-center text-white">
+                                                                <div className="flex justify-between items-center text-white text-white">
                                                                     <p className="font-black text-sm uppercase italic tracking-widest">{DAYS_NAME[day]}</p>
                                                                     <button onClick={()=>updateSchedule(day, 'open', !settings.openingHours[day].open)} className={`text-[10px] font-black px-4 py-2 rounded-full ${settings.openingHours[day].open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>{settings.openingHours[day].open ? 'APERTO' : 'CHIUSO'}</button>
                                                                 </div>
                                                                 {settings.openingHours[day].open && (
-                                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-4 border-t border-white/5 text-white">
+                                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-4 border-t border-white/5">
                                                                         <div className="space-y-1"><label className="text-[8px] opacity-30 uppercase">AM In</label><input type="time" value={settings.openingHours[day].am?.[0]} onChange={(e)=>updateSchedule(day, 'am_start', e.target.value)} className="bg-black/40 p-2 rounded-lg text-xs w-full text-white outline-none" /></div>
                                                                         <div className="space-y-1"><label className="text-[8px] opacity-30 uppercase">AM Out</label><input type="time" value={settings.openingHours[day].am?.[1]} onChange={(e)=>updateSchedule(day, 'am_end', e.target.value)} className="bg-black/40 p-2 rounded-lg text-xs w-full text-white outline-none" /></div>
                                                                         <div className="space-y-1"><label className="text-[8px] opacity-30 uppercase">PM In</label><input type="time" value={settings.openingHours[day].pm?.[0]} onChange={(e)=>updateSchedule(day, 'pm_start', e.target.value)} className="bg-black/40 p-2 rounded-lg text-xs w-full text-white outline-none" /></div>
@@ -559,9 +594,9 @@
                                                     </div>
                                                 </section>
 
-                                                <section className="max-w-4xl mx-auto space-y-6 pb-20 text-left">
+                                                <section className="max-w-4xl mx-auto space-y-6 pb-20 text-left text-white text-white">
                                                     <div className="flex justify-between items-center border-l-4 border-[#d4af37] pl-4">
-                                                        <h3 className="philia-gold font-black uppercase italic text-xl leading-none">Team Philia</h3>
+                                                        <h3 className="philia-gold font-black uppercase italic text-xl leading-none text-white">Team Philia</h3>
                                                         <button onClick={addNewBarber} className="philia-btn px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-all text-[#332d2d]">Aggiungi Staff +</button>
                                                     </div>
                                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white text-left">
@@ -569,7 +604,7 @@
                                                             <div key={barber.id} className="philia-bg p-6 rounded-3xl border border-white/5 relative text-white">
                                                                 {barber.name !== 'SIMONE' && <button onClick={()=>removeBarber(barber.id, barber.name)} className="absolute top-4 right-4 text-red-500/30 hover:text-red-500 transition-colors">✕</button>}
                                                                 <h4 className="text-center philia-gold font-black uppercase italic mb-6 border-b border-white/10 pb-3 leading-none">{barber.name}</h4>
-                                                                <div className="space-y-2">
+                                                                <div className="space-y-2 text-left">
                                                                     {services.map(s => {
                                                                         const isSelected = (barber.skills || []).includes(s.firestoreId);
                                                                         return (
@@ -602,12 +637,11 @@
                                                     <p className="text-white/30 text-[9px] uppercase font-black mt-1 italic leading-tight">{b.serviceName}</p>
                                                 </div>
                                             ))}
-                                            {bookings.filter(b => b.barberName === adminUser).length === 0 && <p className="text-center py-20 opacity-20 italic text-white text-xs">Nessun appuntamento oggi</p>}
                                         </div>
                                         <section className="max-w-4xl mx-auto space-y-6 pt-10 border-t border-white/5 text-left text-white">
-                                            <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] text-white">
+                                            <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px]">
                                                 <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none mb-4 text-white">Mie Ferie e Eccezioni</h3>
-                                                <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5 text-white">
+                                                <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5">
                                                     <input type="date" value={newExc.date} onChange={(e)=>setNewExc({...newExc, date: e.target.value})} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none" />
                                                     <button onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`w-full p-4 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>{newExc.open ? 'Disponibile' : 'Chiuso'}</button>
                                                     {newExc.open && (
