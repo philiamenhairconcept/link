@@ -115,7 +115,6 @@
             });
             const [editingService, setEditingService] = useState({ name: '', price: '', desc: '', duration: 30, firestoreId: null });
 
-            // Trova il barbiere Simone o il collaboratore corrente
             const simoneBarber = useMemo(() => barbers.find(b => b.name.trim().toUpperCase() === 'SIMONE'), [barbers]);
             const currentCollaborator = useMemo(() => {
                 if (!adminUser) return null;
@@ -130,12 +129,10 @@
 
                 const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
 
-                // Listener Orari Default
                 basePath.collection('config').doc('schedule').onSnapshot(doc => {
                     if (doc.exists) setSettings(doc.data());
                 });
 
-                // Listener Catalogo
                 basePath.collection('services').onSnapshot(snap => {
                     let data = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
                     if (data.length === 0) {
@@ -144,13 +141,11 @@
                     setServices(data.sort((a,b) => b.price - a.price));
                 });
 
-                // Listener Barbieri
                 basePath.collection('barbers').onSnapshot(snap => {
                     let data = snap.docs.map(d => ({id: d.id, ...d.data()}));
                     setBarbers(data.sort((a,b) => a.order - b.order));
                 });
 
-                // Listener Prenotazioni
                 basePath.collection('bookings').onSnapshot(snap => {
                     setBookings(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 });
@@ -196,11 +191,11 @@
                 const currentHourMin = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
 
                 let slots = [];
-                const gen = (s, e) => {
-                    if (!s || !e) return;
-                    let cur = new Date(`2000-01-01T${s}:00`);
-                    const end = new Date(`2000-01-01T${e}:00`);
-                    while (cur < end) {
+                const gen = (start, end) => {
+                    if (!start || !end) return;
+                    let cur = new Date(`2000-01-01T${start}:00`);
+                    const endT = new Date(`2000-01-01T${end}:00`);
+                    while (cur < endT) {
                         const timeStr = cur.toTimeString().substring(0, 5);
                         if (selectedDate !== todayStr || timeStr > currentHourMin) slots.push(timeStr);
                         cur.setMinutes(cur.getMinutes() + 30);
@@ -234,7 +229,7 @@
             };
 
             const forceResetCatalog = async () => {
-                if(confirm("ATTENZIONE: Verranno caricati i 20 servizi di base Philia. Procedere?")) {
+                if(confirm("Verranno caricati i 20 servizi di base Philia. Procedere?")) {
                     const coll = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services');
                     INITIAL_SERVICES.forEach(s => coll.add(s));
                     alert("Servizi caricati!");
@@ -245,6 +240,23 @@
                 const skillsArr = barberSkills || [];
                 const newSkills = skillsArr.includes(serviceId) ? skillsArr.filter(id => id !== serviceId) : [...skillsArr, serviceId];
                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(barberId).update({ skills: newSkills });
+            };
+
+            const addNewBarber = async () => {
+                const name = prompt("Nome barbiere:").toUpperCase(); if (!name) return;
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').add({
+                    name: name, skills: services.map(s => s.firestoreId), order: barbers.length + 1, personalSchedule: {}, dateOverrides: {}
+                });
+            };
+
+            const removeBarber = async (id, name) => {
+                if (confirm(`Rimuovere ${name}?`)) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(id).delete();
+            };
+
+            const changeAgendaDate = (offset) => {
+                const current = new Date(adminAgendaDate + 'T00:00:00');
+                current.setDate(current.getDate() + offset);
+                setAdminAgendaDate(current.toLocaleDateString('sv-SE'));
             };
 
             const addDateOverride = async (targetId, isGlobal = false) => {
@@ -259,7 +271,7 @@
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('schedule').update({ dateOverrides: newOverrides });
                 } else {
                     const barber = barbers.find(b => b.id === targetId);
-                    if(!barber) return alert("Errore: barbiere non trovato");
+                    if(!barber) return alert("Barbiere non trovato");
                     const newOverrides = { ...(barber.dateOverrides || {}) };
                     newOverrides[newExc.date] = payload;
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(targetId).update({ dateOverrides: newOverrides });
@@ -279,13 +291,20 @@
                 }
             };
 
-            const changeAgendaDate = (offset) => {
-                const current = new Date(adminAgendaDate + 'T00:00:00');
-                current.setDate(current.getDate() + offset);
-                setAdminAgendaDate(current.toLocaleDateString('sv-SE'));
+            const updateSchedule = async (day, field, value) => {
+                if (!settings) return;
+                const newOpeningHours = { ...settings.openingHours };
+                const dayData = { ...newOpeningHours[day] };
+                if (field === 'open') dayData.open = value;
+                if (field === 'am_start') dayData.am[0] = value;
+                if (field === 'am_end') dayData.am[1] = value;
+                if (field === 'pm_start') dayData.pm[0] = value;
+                if (field === 'pm_end') dayData.pm[1] = value;
+                newOpeningHours[day] = dayData;
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('schedule').update({ openingHours: newOpeningHours });
             };
 
-            // --- COMPONENTI UI RIUTILIZZABILI ---
+            // --- COMPONENTI UI ---
             const AgendaDateNav = () => (
                 <div className="flex flex-col md:flex-row justify-between items-center bg-[#332d2d] p-6 rounded-[35px] border border-[#d4af37]/20 shadow-2xl gap-6 mb-6">
                     <div className="flex items-center gap-6">
@@ -354,7 +373,7 @@
             const AppointmentCard = ({ b }) => (
                 <div className="bg-[#1a1a1a] p-5 rounded-[25px] border-l-8 border-[#d4af37] relative group hover:bg-[#252525] transition-all shadow-lg text-left mb-4 text-white">
                     <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 text-white">
                             <div className="w-2 h-2 bg-[#d4af37] rounded-full shadow-[0_0_8px_#d4af37]"></div>
                             <p className="philia-gold font-black text-xl italic leading-none">{b.time}</p>
                         </div>
@@ -363,7 +382,7 @@
                     <p className="font-black uppercase text-base leading-tight text-white mb-1">{b.customerName}</p>
                     <p className="text-[10px] text-white/40 uppercase font-bold line-clamp-1 italic mb-3">{b.serviceName}</p>
                     <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5">
-                        <a href={`tel:${b.customerPhone}`} className="text-green-500 text-[11px] font-black tracking-widest flex items-center gap-1 hover:scale-105 transition-transform italic">
+                        <a href={`tel:${b.customerPhone}`} className="text-green-500 text-[11px] font-black tracking-widest flex items-center gap-1 hover:scale-105 transition-transform italic text-white">
                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 005.454 5.455l.774-1.548a1 1 0 011.06-.539l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"></path></svg>
                             CHIAMA
                         </a>
@@ -375,8 +394,8 @@
             if (loading) return <div className="h-screen flex items-center justify-center bg-[#1a1a1a] text-[#d4af37] font-bold tracking-[5px]">PHILIA...</div>;
 
             if (!isIdentified) return (
-                <div className="h-screen flex items-center justify-center bg-[#1a1a1a] p-6 text-center text-white text-white">
-                    <div className="fade-in max-w-sm w-full philia-bg p-10 rounded-[40px] border border-[#d4af37]/20 shadow-2xl">
+                <div className="h-screen flex items-center justify-center bg-[#1a1a1a] p-6 text-center text-white">
+                    <div className="fade-in max-w-sm w-full philia-bg p-10 rounded-[40px] border border-[#d4af37]/20 shadow-2xl text-white">
                         <img src="logo.png" alt="Philia Logo" className="w-72 mx-auto mb-10 object-contain text-white" />
                         <p className="text-white/80 text-2xl uppercase tracking-[4px] mb-10 font-black text-white">Benvenuto!</p>
                         <div className="space-y-4 mb-8 text-left text-white">
@@ -391,13 +410,13 @@
 
             return (
                 <div className="app-container min-h-screen pb-24 shadow-2xl relative bg-[#1a1a1a] flex flex-col overflow-hidden text-white">
-                    {/* Header Permanente */}
+                    {/* Header */}
                     <div className="p-6 philia-bg border-b border-[#d4af37]/20 flex justify-between items-center sticky top-0 z-50">
                         <div className="flex items-center gap-3">
                             <img src="logo.png" alt="Philia" className="h-8 w-auto text-white" />
                             <h1 className="text-xl font-black philia-gold uppercase italic leading-none text-white">Philia</h1>
                         </div>
-                        <button onClick={() => { if(prompt("Password:") === "philia2024") setView('admin-login'); }} className="text-white/10 hover:text-[#d4af37] p-2 transition-colors text-white">⚙️</button>
+                        <button onClick={() => { if(prompt("Password:") === "philia2024") setView('admin-login'); }} className="text-white/10 hover:text-[#d4af37] p-2 transition-colors text-white text-white">⚙️</button>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar text-white">
@@ -412,7 +431,7 @@
                                     </div>
                                 )}
                                 {step === 2 && (
-                                    <div className="fade-in">
+                                    <div className="fade-in text-white">
                                         <button onClick={()=>setStep(1)} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest text-white">← Indietro</button>
                                         <h2 className="text-xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 uppercase italic leading-tight text-left text-white">Servizi di {selectedBarber.name}</h2>
                                         <div className="grid gap-3 text-white">
@@ -431,10 +450,10 @@
                                 {step === 3 && (
                                     <div className="fade-in text-white text-white">
                                         <button onClick={()=>setStep(2)} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest text-white">← Indietro</button>
-                                        <div className="philia-bg p-6 rounded-3xl mb-8 border border-white/5 shadow-inner text-center text-white text-white">
+                                        <div className="philia-bg p-6 rounded-3xl mb-8 border border-white/5 shadow-inner text-center text-white">
                                             <input type="date" value={selectedDate} min={new Date().toLocaleDateString('sv-SE')} onChange={(e)=>setSelectedDate(e.target.value)} className="bg-transparent text-white font-black text-2xl text-center outline-none w-full text-white" />
                                         </div>
-                                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 text-white text-white">
+                                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 text-white">
                                             {getFreeSlots().map(slot => (
                                                 <button key={slot} onClick={()=>{setSelectedSlot(slot); setStep(4);}} className={`p-4 rounded-xl font-black text-sm transition-all ${selectedSlot === slot ? 'philia-btn scale-105 shadow-xl shadow-[#d4af37]/20 text-[#332d2d]' : 'bg-[#332d2d] border border-white/5 text-white'}`}>{slot}</button>
                                             ))}
@@ -459,7 +478,7 @@
                         )}
 
                         {view === 'admin-login' && (
-                            <div className="fade-in max-w-xl mx-auto py-10 text-center text-white text-white">
+                            <div className="fade-in max-w-xl mx-auto py-10 text-center text-white">
                                 <h2 className="text-3xl font-black philia-gold mb-12 italic uppercase tracking-widest leading-none text-white">Accesso Staff</h2>
                                 <div className="grid gap-4 text-white">
                                     <button onClick={()=>{setAdminUser('SIMONE'); setView('admin'); setAdminSubView('agenda');}} className="w-full philia-btn p-8 rounded-3xl font-black text-2xl italic uppercase shadow-2xl text-[#332d2d]">SIMONE (MASTER)</button>
@@ -472,7 +491,7 @@
                         )}
 
                         {view === 'admin' && (
-                            <div className="space-y-6 pb-20 fade-in text-white">
+                            <div className="space-y-6 pb-20 fade-in text-white text-white">
                                 {adminUser === 'SIMONE' && (
                                     <div className="flex gap-2 p-2 bg-black/40 rounded-3xl mb-8 border border-white/5 shadow-2xl text-white">
                                         <button onClick={() => setAdminSubView('agenda')} className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs transition-all ${adminSubView === 'agenda' ? 'philia-btn shadow-xl scale-105 text-[#332d2d]' : 'text-white/20'}`}>Agenda</button>
@@ -481,7 +500,7 @@
                                     </div>
                                 )}
 
-                                <div className="flex justify-between items-center border-b border-[#d4af37]/20 pb-6 text-white">
+                                <div className="flex justify-between items-center border-b border-[#d4af37]/20 pb-6 text-white text-white">
                                     <h2 className="text-2xl font-black italic uppercase leading-none tracking-tighter text-white">
                                         {adminUser === 'SIMONE' ? (adminSubView === 'agenda' ? 'AGENDONE TEAM' : (adminSubView === 'gestione' ? 'SETTAGGI SALONE' : 'LISTINO SERVIZI')) : `AGENDA ${adminUser}`}
                                     </h2>
@@ -490,7 +509,6 @@
                                 
                                 {adminUser === 'SIMONE' ? (
                                     <div className="space-y-12">
-                                        {/* AGENDA SIMONE */}
                                         {adminSubView === 'agenda' && (
                                             <div className="space-y-6 fade-in text-white text-white">
                                                 <AgendaDateNav />
@@ -501,7 +519,7 @@
                                                             <div key={barber.id} className="philia-bg rounded-[40px] border border-white/5 flex flex-col min-h-[500px] shadow-2xl overflow-hidden text-white text-white">
                                                                 <div className="p-6 border-b border-[#d4af37]/20 text-center bg-gradient-to-b from-black/20 to-transparent text-white">
                                                                     <h4 className="philia-gold font-black uppercase italic tracking-tighter text-2xl leading-none text-white">{barber.name}</h4>
-                                                                    <div className="mt-2 flex items-center justify-center gap-2 text-white text-white">
+                                                                    <div className="mt-2 flex items-center justify-center gap-2">
                                                                         <span className="w-2 h-2 rounded-full bg-green-500"></span>
                                                                         <p className="text-[10px] text-white/30 uppercase font-black tracking-widest text-white">{dayBookings.length} APPUNTAMENTI</p>
                                                                     </div>
@@ -516,15 +534,14 @@
                                             </div>
                                         )}
 
-                                        {/* CATALOGO SIMONE */}
                                         {adminSubView === 'catalogo' && (
                                             <div className="space-y-12 fade-in max-w-4xl mx-auto text-white">
                                                 <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] space-y-6 text-center text-white">
                                                     <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4 text-white">
-                                                        <h3 className="philia-gold font-black uppercase text-sm">Nuovo o Modifica</h3>
+                                                        <h3 className="philia-gold font-black uppercase text-sm text-white">Nuovo o Modifica</h3>
                                                         <button onClick={forceResetCatalog} className="bg-red-600/20 text-red-500 border border-red-500/50 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all text-white">Reset Listino</button>
                                                     </div>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left text-white">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left text-white text-white">
                                                         <input type="text" placeholder="Nome" value={editingService.name} onChange={(e)=>setEditingService({...editingService, name: e.target.value})} className="bg-black/40 p-4 rounded-xl outline-none border border-white/10 text-white" />
                                                         <input type="number" placeholder="Prezzo" value={editingService.price} onChange={(e)=>setEditingService({...editingService, price: Number(e.target.value)})} className="bg-black/40 p-4 rounded-xl outline-none border border-white/10 text-white" />
                                                         <input type="text" placeholder="Descrizione" value={editingService.desc} onChange={(e)=>setEditingService({...editingService, desc: e.target.value})} className="bg-black/40 p-4 rounded-xl outline-none border border-white/10 md:col-span-2 text-white" />
@@ -550,14 +567,13 @@
                                             </div>
                                         )}
 
-                                        {/* GESTIONE SALONE E STAFF SIMONE */}
                                         {adminSubView === 'gestione' && (
-                                            <div className="space-y-12 fade-in text-white text-white text-white">
-                                                <section className="max-w-4xl mx-auto p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] text-white text-white">
-                                                    <h3 className="philia-gold font-black uppercase italic mb-6 text-center text-white">Eccezioni Calendario</h3>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left text-white text-white">
+                                            <div className="space-y-12 fade-in text-white text-white">
+                                                <section className="max-w-4xl mx-auto p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] text-white">
+                                                    <h3 className="philia-gold font-black uppercase italic mb-6 text-center text-white text-white">Eccezioni Calendario</h3>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left text-white">
                                                         <ExceptionForm targetId={simoneBarber?.id} isMasterMode={true} />
-                                                        <div className="max-h-[500px] overflow-y-auto space-y-3 no-scrollbar text-left text-white text-white">
+                                                        <div className="max-h-[500px] overflow-y-auto space-y-3 no-scrollbar text-left text-white">
                                                             <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] mb-4 text-white text-white">Eccezioni Attive Team</p>
                                                             {Object.entries(settings?.dateOverrides || {}).sort().map(([date, h]) => (
                                                                 <div key={date + "_global"} className="bg-[#d4af37]/10 p-4 rounded-2xl border border-[#d4af37]/30 flex justify-between items-center group text-white">
@@ -587,20 +603,41 @@
                                                     </div>
                                                 </section>
 
-                                                {/* GESTIONE STAFF E COMPETENZE (SKILLS) */}
-                                                <section className="max-w-5xl mx-auto space-y-6 text-left text-white">
-                                                    <div className="flex justify-between items-center border-l-4 border-[#d4af37] pl-4 text-white">
-                                                        <h3 className="philia-gold font-black uppercase italic text-xl leading-none text-white text-white">Organico e Competenze</h3>
-                                                        <button onClick={addNewBarber} className="philia-btn px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 text-white">Aggiungi Barbiere +</button>
+                                                {/* ORARI DEFAULT */}
+                                                <section className="max-w-4xl mx-auto space-y-6 text-left text-white">
+                                                    <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-white/20 pl-4 leading-none text-white text-white">Orari Default Salone</h3>
+                                                    <div className="grid gap-4 opacity-70 text-white">
+                                                        {settings && Object.keys(settings.openingHours).map(day => (
+                                                            <div key={day} className="philia-bg p-5 rounded-[25px] border border-white/5 flex flex-col gap-4 text-white text-white">
+                                                                <div className="flex justify-between items-center text-white text-white text-white">
+                                                                    <p className="font-black text-sm uppercase italic tracking-widest text-white text-white text-white">{DAYS_NAME[day]}</p>
+                                                                    <button onClick={()=>updateSchedule(day, 'open', !settings.openingHours[day].open)} className={`text-[10px] font-black px-4 py-2 rounded-full ${settings.openingHours[day].open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>{settings.openingHours[day].open ? 'APERTO' : 'CHIUSO'}</button>
+                                                                </div>
+                                                                {settings.openingHours[day].open && (
+                                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-4 border-t border-white/5 text-white">
+                                                                        <div className="space-y-1 text-white text-white"><label className="text-[8px] opacity-30 uppercase">AM In</label><input type="time" value={settings.openingHours[day].am?.[0]} onChange={(e)=>updateSchedule(day, 'am_start', e.target.value)} className="bg-black/40 p-2 rounded-lg text-xs w-full text-white outline-none text-white text-white" /></div>
+                                                                        <div className="space-y-1 text-white text-white"><label className="text-[8px] opacity-30 uppercase">AM Out</label><input type="time" value={settings.openingHours[day].am?.[1]} onChange={(e)=>updateSchedule(day, 'am_end', e.target.value)} className="bg-black/40 p-2 rounded-lg text-xs w-full text-white outline-none text-white text-white" /></div>
+                                                                        <div className="space-y-1 text-white text-white"><label className="text-[8px] opacity-30 uppercase">PM In</label><input type="time" value={settings.openingHours[day].pm?.[0]} onChange={(e)=>updateSchedule(day, 'pm_start', e.target.value)} className="bg-black/40 p-2 rounded-lg text-xs w-full text-white outline-none text-white text-white" /></div>
+                                                                        <div className="space-y-1 text-white text-white"><label className="text-[8px] opacity-30 uppercase">PM Out</label><input type="time" value={settings.openingHours[day].pm?.[1]} onChange={(e)=>updateSchedule(day, 'pm_end', e.target.value)} className="bg-black/40 p-2 rounded-lg text-xs w-full text-white outline-none text-white text-white" /></div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </section>
+
+                                                {/* ORGANICO E COMPETENZE */}
+                                                <section className="max-w-5xl mx-auto space-y-6 text-left text-white text-white">
+                                                    <div className="flex justify-between items-center border-l-4 border-[#d4af37] pl-4 text-white text-white text-white">
+                                                        <h3 className="philia-gold font-black uppercase italic text-xl leading-none text-white text-white text-white">Organico e Competenze</h3>
+                                                        <button onClick={addNewBarber} className="philia-btn px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 text-white">Aggiungi +</button>
                                                     </div>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-white text-left text-white">
                                                         {barbers.map(barber => (
                                                             <div key={barber.id} className="philia-bg p-6 rounded-[35px] border border-white/5 relative text-white text-white">
-                                                                {barber.name.trim().toUpperCase() !== 'SIMONE' && <button onClick={()=>removeBarber(barber.id, barber.name)} className="absolute top-5 right-5 text-red-500/20 hover:text-red-500 transition-colors text-white">✕</button>}
+                                                                {barber.name.trim().toUpperCase() !== 'SIMONE' && <button onClick={()=>removeBarber(barber.id, barber.name)} className="absolute top-5 right-5 text-red-500/20 hover:text-red-500 transition-colors">✕</button>}
                                                                 <h4 className="text-center philia-gold font-black uppercase italic mb-6 border-b border-white/10 pb-3 leading-none text-white text-white">{barber.name}</h4>
-                                                                
-                                                                <p className="text-[8px] text-white/20 uppercase font-black mb-3 tracking-widest">Attiva/Disattiva Servizi</p>
-                                                                <div className="space-y-1.5 max-h-[300px] overflow-y-auto no-scrollbar pr-1">
+                                                                <div className="space-y-2 text-white">
                                                                     {services.map(s => {
                                                                         const isSelected = (barber.skills || []).includes(s.firestoreId);
                                                                         return (
@@ -643,22 +680,22 @@
                                             </div>
                                         </div>
 
-                                        <section className="max-w-4xl mx-auto space-y-6 pt-10 border-t border-white/5 text-left text-white text-white">
-                                            <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] text-white text-white">
+                                        <section className="max-w-4xl mx-auto space-y-6 pt-10 border-t border-white/5 text-left text-white text-white text-white text-white">
+                                            <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] text-white text-white text-white">
                                                 <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none mb-4 text-white text-white">Gestione Mie Eccezioni</h3>
-                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 text-white">
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 text-white text-white">
                                                     <ExceptionForm targetId={currentCollaborator?.id} isMasterMode={false} />
-                                                    <div className="max-h-[500px] overflow-y-auto space-y-3 no-scrollbar text-left text-white text-white">
-                                                        <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] mb-4 text-white">Eccezioni Attive</p>
+                                                    <div className="max-h-[500px] overflow-y-auto space-y-3 no-scrollbar text-left text-white text-white text-white">
+                                                        <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] mb-4 text-white text-white text-white">Le Mie Eccezioni</p>
                                                         {currentCollaborator && Object.entries(currentCollaborator.dateOverrides || {}).sort().map(([date, h]) => (
-                                                            <div key={date} className="philia-bg p-4 rounded-2xl border border-white/10 flex justify-between items-center group text-white">
+                                                            <div key={date} className="philia-bg p-4 rounded-2xl border border-white/10 flex justify-between items-center group text-white text-white">
                                                                 <div>
-                                                                    <p className="font-black text-sm text-[#d4af37] text-white text-white">{date}</p>
-                                                                    <p className="text-[9px] uppercase text-white/50 text-white text-white">
+                                                                    <p className="font-black text-sm text-[#d4af37] text-white text-white text-white">{date}</p>
+                                                                    <p className="text-[9px] uppercase text-white/50 text-white text-white text-white text-white">
                                                                         {h.open ? `${h.amActive ? 'AM OK' : 'AM OFF'} | ${h.pmActive ? 'PM OK' : 'PM OFF'}` : 'ASSENTE'}
                                                                     </p>
                                                                 </div>
-                                                                <button onClick={()=>removeDateOverride(currentCollaborator.id, date)} className="text-red-500 font-black px-2 hover:scale-125 transition-transform text-white text-white">✕</button>
+                                                                <button onClick={()=>removeDateOverride(currentCollaborator.id, date)} className="text-red-500 font-black px-2 hover:scale-125 transition-transform text-white text-white text-white text-white text-white text-white">✕</button>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -671,11 +708,11 @@
                         )}
                     </div>
 
-                    {/* Navigazione Bottom Permanente */}
-                    <div className="fixed bottom-0 left-0 right-0 philia-bg border-t border-[#d4af37]/10 p-5 flex justify-around items-center max-w-xl mx-auto z-50 rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] text-white text-white text-white">
-                        <button onClick={()=>{setView('booking'); setStep(1);}} className={`flex flex-col items-center transition-all ${view === 'booking' ? 'philia-gold scale-125 shadow-[0_0_20px_rgba(212,175,55,0.2)] text-white text-white text-white' : 'text-white/20'}`}><IconCalendar /><span className="text-[8px] font-black mt-1 uppercase tracking-widest text-white text-white text-white text-white text-white">PRENOTA</span></button>
-                        <button onClick={()=>setView('my-bookings')} className={`flex flex-col items-center transition-all ${view === 'my-bookings' ? 'philia-gold scale-125 shadow-[0_0_20px_rgba(212,175,55,0.2)]' : 'text-white/20'}`}><IconClock /><span className="text-[8px] font-black mt-1 uppercase tracking-widest text-center text-white text-white text-white text-white text-white">MIEI TAGLI</span></button>
-                        <button onClick={() => { if(confirm("Cambiare utente?")) { localStorage.clear(); location.reload(); }}} className="flex flex-col items-center text-white/10 hover:text-red-500"><IconUser /><span className="text-[7px] uppercase font-bold mt-1 text-center leading-none tracking-tighter text-white text-white text-white text-white text-white text-white text-white">UTENTE</span></button>
+                    {/* Navigazione Bottom */}
+                    <div className="fixed bottom-0 left-0 right-0 philia-bg border-t border-[#d4af37]/10 p-5 flex justify-around items-center max-w-xl mx-auto z-50 rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
+                        <button onClick={()=>{setView('booking'); setStep(1);}} className={`flex flex-col items-center transition-all ${view === 'booking' ? 'philia-gold scale-125 shadow-[0_0_20px_rgba(212,175,55,0.2)] text-white text-white' : 'text-white/20'}`}><IconCalendar /><span className="text-[8px] font-black mt-1 uppercase tracking-widest text-white text-white text-white text-white">PRENOTA</span></button>
+                        <button onClick={()=>setView('my-bookings')} className={`flex flex-col items-center transition-all ${view === 'my-bookings' ? 'philia-gold scale-125 shadow-[0_0_20px_rgba(212,175,55,0.2)]' : 'text-white/20'}`}><IconClock /><span className="text-[8px] font-black mt-1 uppercase tracking-widest text-center text-white text-white text-white text-white">MIEI TAGLI</span></button>
+                        <button onClick={() => { if(confirm("Cambiare utente?")) { localStorage.clear(); location.reload(); }}} className="flex flex-col items-center text-white/10 hover:text-red-500"><IconUser /><span className="text-[7px] uppercase font-bold mt-1 text-center leading-none tracking-tighter text-white text-white text-white text-white text-white">UTENTE</span></button>
                     </div>
                 </div>
             );
