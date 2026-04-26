@@ -58,7 +58,7 @@
         const db = firebase.firestore();
         const appId = "philia-v2-production";
 
-        // --- LISTA COMPLETA 20 SERVIZI ---
+        // --- LISTA COMPLETA 20 SERVIZI ORIGINALI ---
         const INITIAL_SERVICES = [
             { id: 'perm_ricci', name: 'Permanente Ricci', price: 30, duration: 60, desc: 'Per un look dinamico e capelli ricci definiti.' },
             { id: 'comp_scrub', name: 'Completo + Scrub Viso', price: 30, duration: 45, desc: 'Il pacchetto relax completo per pelle e capelli.' },
@@ -119,21 +119,18 @@
 
                 const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
 
-                // Listener Orari Salone
+                // Listener Orari
                 basePath.collection('config').doc('schedule').onSnapshot(doc => {
                     if (doc.exists) setSettings(doc.data());
                 });
 
-                // Listener Catalogo Servizi (Con logica di ripristino per i 20 servizi)
+                // Listener Catalogo con caricamento iniziale automatico
                 basePath.collection('services').onSnapshot(snap => {
                     let data = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                    // Se il catalogo ha meno di 10 servizi (segno di un caricamento parziale o errore precedente),
-                    // offriamo l'opzione di caricare i 20 servizi di base se l'admin è Simone.
-                    // Per ora carichiamo INITIAL_SERVICES solo se il database è totalmente vuoto.
                     if (data.length === 0) {
                         INITIAL_SERVICES.forEach(s => basePath.collection('services').add(s));
                     }
-                    // Ordina SEMPRE dal prezzo più alto al più basso
+                    // Ordina rigorosamente dal prezzo più alto
                     setServices(data.sort((a,b) => b.price - a.price));
                 });
 
@@ -147,7 +144,7 @@
                 basePath.collection('bookings').onSnapshot(snap => {
                     setBookings(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 });
-            }, [adminUser]);
+            }, []);
 
             const saveIdentity = () => {
                 if (clientPhone.length < 9 || clientName.length < 2) {
@@ -214,12 +211,29 @@
                     await coll.add({ ...editingService, id: Date.now().toString() });
                 }
                 setEditingService({ name: '', price: '', desc: '', duration: 30 });
-                alert("Salvataggio completato!");
+                alert("Servizio salvato correttamente.");
             };
 
             const deleteService = async (id) => {
                 if (confirm("Eliminare definitivamente questo servizio?")) {
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services').doc(id).delete();
+                }
+            };
+
+            // Funzione per forzare il caricamento dei 20 servizi
+            const forceResetCatalog = async () => {
+                if(confirm("ATTENZIONE: Questa operazione eliminerà TUTTI i servizi attuali e ricaricherà i 20 servizi Philia originali. Procedere?")) {
+                    const coll = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services');
+                    const currentSnap = await coll.get();
+                    // Elimina esistenti
+                    const batch = db.batch();
+                    currentSnap.docs.forEach(doc => batch.delete(doc.ref));
+                    await batch.commit();
+                    // Aggiungi originali
+                    for (const s of INITIAL_SERVICES) {
+                        await coll.add(s);
+                    }
+                    alert("Listino resettato con successo!");
                 }
             };
 
@@ -265,7 +279,7 @@
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(targetId).update({ dateOverrides: newOverrides });
                 }
                 setNewExc({ date: '', open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:30'] });
-                alert("Salvataggio completato!");
+                alert("Eccezione salvata.");
             };
 
             const removeDateOverride = async (targetId, dateKey, isGlobal = false) => {
@@ -296,14 +310,6 @@
                 if (confirm(`Rimuovere ${name}?`)) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(id).delete();
             };
 
-            const restoreBaseCatalog = async () => {
-                if(confirm("Vuoi ricaricare i 20 servizi Philia originali? (Non cancellerà quelli esistenti)")) {
-                    const coll = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services');
-                    INITIAL_SERVICES.forEach(s => coll.add(s));
-                    alert("Listino ricaricato!");
-                }
-            };
-
             if (loading) return <div className="h-screen flex items-center justify-center bg-[#1a1a1a] text-[#d4af37] font-bold tracking-[5px]">PHILIA...</div>;
 
             if (!isIdentified) return (
@@ -323,7 +329,6 @@
 
             return (
                 <div className="app-container min-h-screen pb-24 shadow-2xl relative bg-[#1a1a1a] flex flex-col overflow-hidden text-white">
-                    {/* Header */}
                     <div className="p-6 philia-bg border-b border-[#d4af37]/20 flex justify-between items-center sticky top-0 z-50">
                         <div className="flex items-center gap-3">
                             <img src="logo.png" alt="Philia" className="h-8 w-auto" />
@@ -399,7 +404,7 @@
                                 <div className="grid gap-4">
                                     <button onClick={()=>{setAdminUser('SIMONE'); setView('admin'); setAdminSubView('agenda');}} className="w-full philia-btn p-8 rounded-3xl font-black text-2xl italic uppercase shadow-2xl text-[#332d2d]">SIMONE (MASTER)</button>
                                     {barbers.filter(b => b.name !== 'SIMONE').map(b => (
-                                        <button key={b.id} onClick={()=>{setAdminUser(b.name); setView('admin');}} className="w-full philia-bg p-6 rounded-3xl font-black text-xl italic border border-white/10 hover:border-[#d4af37] transition-all">{b.name}</button>
+                                        <button key={b.id} onClick={()=>{setAdminUser(b.name); setView('admin');}} className="w-full philia-bg p-6 rounded-3xl font-black text-xl italic border border-white/10 hover:border-[#d4af37] transition-all text-center uppercase">{b.name}</button>
                                     ))}
                                     <button onClick={()=>setView('booking')} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest">Torna al Salone</button>
                                 </div>
@@ -410,9 +415,9 @@
                             <div className="space-y-6 pb-20 fade-in">
                                 {adminUser === 'SIMONE' && (
                                     <div className="flex gap-2 p-2 bg-black/40 rounded-3xl mb-8 border border-white/5 shadow-2xl">
-                                        <button onClick={() => setAdminSubView('agenda')} className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs transition-all ${adminSubView === 'agenda' ? 'philia-btn scale-105 shadow-xl text-[#332d2d]' : 'text-white/20'}`}>Agenda</button>
-                                        <button onClick={() => setAdminSubView('gestione')} className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs transition-all ${adminSubView === 'gestione' ? 'philia-btn scale-105 shadow-xl text-[#332d2d]' : 'text-white/20'}`}>Salone</button>
-                                        <button onClick={() => setAdminSubView('catalogo')} className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs transition-all ${adminSubView === 'catalogo' ? 'philia-btn scale-105 shadow-xl text-[#332d2d]' : 'text-white/20'}`}>Catalogo</button>
+                                        <button onClick={() => setAdminSubView('agenda')} className={`flex-1 p-5 rounded-2xl font-black uppercase text-xs transition-all ${adminSubView === 'agenda' ? 'philia-btn scale-105 shadow-xl text-[#332d2d]' : 'text-white/20'}`}>Agenda</button>
+                                        <button onClick={() => setAdminSubView('gestione')} className={`flex-1 p-5 rounded-2xl font-black uppercase text-xs transition-all ${adminSubView === 'gestione' ? 'philia-btn scale-105 shadow-xl text-[#332d2d]' : 'text-white/20'}`}>Salone</button>
+                                        <button onClick={() => setAdminSubView('catalogo')} className={`flex-1 p-5 rounded-2xl font-black uppercase text-xs transition-all ${adminSubView === 'catalogo' ? 'philia-btn scale-105 shadow-xl text-[#332d2d]' : 'text-white/20'}`}>Catalogo</button>
                                     </div>
                                 )}
 
@@ -420,7 +425,7 @@
                                     <h2 className="text-2xl font-black italic uppercase leading-none tracking-tighter">
                                         {adminUser === 'SIMONE' ? (adminSubView === 'agenda' ? 'AGENDONE TEAM' : (adminSubView === 'gestione' ? 'SETTAGGI SALONE' : 'LISTINO SERVIZI')) : `AGENDA ${adminUser}`}
                                     </h2>
-                                    <button onClick={()=>{setAdminUser(null); setView('booking');}} className="philia-gold text-xs font-bold uppercase border border-[#d4af37]/30 px-6 py-3 rounded-full">Logout</button>
+                                    <button onClick={()=>{setAdminUser(null); setView('booking');}} className="philia-gold text-xs font-bold uppercase border border-[#d4af37]/30 px-6 py-3 rounded-full">Esci</button>
                                 </div>
                                 
                                 {adminUser === 'SIMONE' ? (
@@ -450,10 +455,10 @@
 
                                         {adminSubView === 'catalogo' && (
                                             <div className="space-y-12 fade-in max-w-4xl mx-auto">
-                                                <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] space-y-6">
-                                                    <div className="flex justify-between items-center mb-4">
-                                                        <h3 className="philia-gold font-black uppercase text-sm">Nuovo / Modifica</h3>
-                                                        <button onClick={restoreBaseCatalog} className="text-[9px] philia-gold underline font-black uppercase tracking-widest">Ripristina Listino 20 Servizi Philia</button>
+                                                <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] space-y-6 text-center">
+                                                    <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+                                                        <h3 className="philia-gold font-black uppercase text-sm">Aggiungi o Modifica Servizio</h3>
+                                                        <button onClick={forceResetCatalog} className="bg-red-600/20 text-red-500 border border-red-500/50 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Resetta e Carica 20 Servizi Philia</button>
                                                     </div>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                                                         <input type="text" placeholder="Nome Servizio" value={editingService.name} onChange={(e)=>setEditingService({...editingService, name: e.target.value})} className="bg-black/40 p-4 rounded-xl outline-none border border-white/10" />
@@ -464,12 +469,12 @@
                                                     </div>
                                                 </div>
                                                 <div className="grid gap-4">
-                                                    <p className="text-[10px] philia-gold font-black uppercase tracking-[4px] text-left ml-2 italic">Tuo Listino Attuale (Ordinato per prezzo)</p>
+                                                    <p className="text-[10px] philia-gold font-black uppercase tracking-[4px] text-left ml-2 italic">Tuo Listino Attuale (Ordinato per prezzo decrescente)</p>
                                                     {services.map(s => (
                                                         <div key={s.id} className="philia-bg p-6 rounded-3xl border border-white/5 flex justify-between items-center group">
                                                             <div className="text-left flex-1 pr-4">
                                                                 <p className="font-black text-lg uppercase leading-none mb-1">{s.name}</p>
-                                                                <p className="text-[10px] text-white/50 italic mb-2">{s.desc}</p>
+                                                                <p className="text-[11px] text-white/50 italic mb-2 leading-relaxed">{s.desc}</p>
                                                                 <p className="text-[11px] text-[#d4af37] uppercase font-black">€{s.price} • {s.duration} min</p>
                                                             </div>
                                                             <div className="flex gap-2">
@@ -478,6 +483,7 @@
                                                             </div>
                                                         </div>
                                                     ))}
+                                                    {services.length === 0 && <p className="text-center py-20 opacity-20 italic">Listino vuoto. Usa il tasto Reset sopra per caricare i 20 servizi di base.</p>}
                                                 </div>
                                             </div>
                                         )}
@@ -486,8 +492,8 @@
                                             <div className="space-y-12 fade-in text-white">
                                                 <section className="max-w-4xl mx-auto p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px]">
                                                     <h3 className="philia-gold font-black uppercase italic mb-6">Eccezioni Calendario</h3>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                                        <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5 text-left text-white">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left">
+                                                        <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5 text-white">
                                                             <input type="date" value={newExc.date} onChange={(e)=>setNewExc({...newExc, date: e.target.value})} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none" />
                                                             <button onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`w-full p-4 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>{newExc.open ? 'Disponibile' : 'Chiuso'}</button>
                                                             {newExc.open && (
@@ -501,7 +507,7 @@
                                                             <button onClick={()=>addDateOverride(barbers.find(b => b.name === 'SIMONE').id)} className="w-full philia-btn p-5 rounded-2xl font-black text-xs uppercase shadow-xl text-[#332d2d]">Solo Simone</button>
                                                             <button onClick={()=>addDateOverride(null, true)} className="w-full bg-white/10 p-5 rounded-2xl font-black text-xs uppercase text-white hover:bg-white/20 transition-all">Tutto Salone</button>
                                                         </div>
-                                                        <div className="max-h-[350px] overflow-y-auto space-y-3 no-scrollbar text-left">
+                                                        <div className="max-h-[350px] overflow-y-auto space-y-3 no-scrollbar">
                                                             {Object.entries(settings?.dateOverrides || {}).sort().map(([date, h]) => (
                                                                 <div key={date} className="bg-[#d4af37]/10 p-4 rounded-2xl border border-[#d4af37]/30 flex justify-between items-center group">
                                                                     <div><p className="font-black text-sm philia-gold">{date} (TUTTI)</p><p className="text-[9px] uppercase">{h.open ? `AM ${h.am[0]}-${h.am[1]} PM ${h.pm[0]}-${h.pm[1]}` : 'Chiuso'}</p></div>
@@ -539,12 +545,12 @@
                                                         <h3 className="philia-gold font-black uppercase italic text-xl leading-none">Team Philia</h3>
                                                         <button onClick={addNewBarber} className="philia-btn px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-all text-[#332d2d]">Aggiungi Staff +</button>
                                                     </div>
-                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white">
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white text-left">
                                                         {barbers.map(barber => (
                                                             <div key={barber.id} className="philia-bg p-6 rounded-3xl border border-white/5 relative">
                                                                 {barber.name !== 'SIMONE' && <button onClick={()=>removeBarber(barber.id, barber.name)} className="absolute top-4 right-4 text-red-500/30 hover:text-red-500 transition-colors">✕</button>}
                                                                 <h4 className="text-center philia-gold font-black uppercase italic mb-6 border-b border-white/10 pb-3 leading-none">{barber.name}</h4>
-                                                                <div className="space-y-2 text-left">
+                                                                <div className="space-y-2">
                                                                     {services.map(s => {
                                                                         const isSelected = (barber.skills || []).includes(s.id);
                                                                         return (
@@ -574,15 +580,15 @@
                                                     </div>
                                                     <p className="font-bold uppercase text-xl leading-none">{b.customerName}</p>
                                                     <p className="text-green-500 font-black tracking-widest text-xs">{b.customerPhone}</p>
-                                                    <p className="text-white/30 text-[9px] uppercase font-black mt-1 italic">{b.serviceName}</p>
+                                                    <p className="text-white/30 text-[9px] uppercase font-black mt-1 italic leading-tight">{b.serviceName}</p>
                                                 </div>
                                             ))}
-                                            {bookings.filter(b => b.barberName === adminUser).length === 0 && <p className="text-center py-20 opacity-20 italic text-white">Nessun appuntamento oggi</p>}
+                                            {bookings.filter(b => b.barberName === adminUser).length === 0 && <p className="text-center py-20 opacity-20 italic text-white text-xs">Nessun appuntamento oggi</p>}
                                         </div>
                                         <section className="max-w-4xl mx-auto space-y-6 pt-10 border-t border-white/5 text-left">
                                             <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px]">
                                                 <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none mb-4">Mie Ferie e Eccezioni</h3>
-                                                <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5">
+                                                <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5 text-white">
                                                     <input type="date" value={newExc.date} onChange={(e)=>setNewExc({...newExc, date: e.target.value})} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none" />
                                                     <button onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`w-full p-4 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>{newExc.open ? 'Disponibile' : 'Chiuso'}</button>
                                                     {newExc.open && (
@@ -605,8 +611,15 @@
                                 <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-center sm:text-left tracking-tighter leading-none">I TUOI TAGLI</h2>
                                 {bookings.filter(b => b.customerPhone === clientPhone).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).map(b => (
                                     <div key={b.id} className="philia-bg p-8 rounded-[40px] border border-white/5 mb-5 shadow-2xl flex justify-between items-center transition-all hover:scale-[1.02] text-left">
-                                        <div><p className="philia-gold font-black text-xs uppercase">{b.date}</p><h3 className="font-black text-2xl uppercase italic leading-none my-1">{b.serviceName}</h3><p className="text-white/40 text-[10px] uppercase font-bold">Con {b.barberName}</p></div>
-                                        <div className="text-right"><p className="text-4xl font-black philia-gold italic leading-none">{b.time}</p><button onClick={async ()=>{if(confirm("Annullare?")) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete();}} className="text-red-500/30 text-[9px] font-black uppercase mt-2 block w-full text-right underline italic">Annulla</button></div>
+                                        <div className="flex-1 pr-4">
+                                            <p className="philia-gold font-black text-xs uppercase">{b.date}</p>
+                                            <h3 className="font-black text-2xl uppercase italic leading-tight my-1">{b.serviceName}</h3>
+                                            <p className="text-white/40 text-[10px] uppercase font-bold">Con {b.barberName}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-4xl font-black philia-gold italic leading-none">{b.time}</p>
+                                            <button onClick={async ()=>{if(confirm("Annullare?")) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete();}} className="text-red-500/30 text-[9px] font-black uppercase mt-2 block w-full text-right underline italic">Annulla</button>
+                                        </div>
                                     </div>
                                 ))}
                                 {bookings.filter(b => b.customerPhone === clientPhone).length === 0 && <p className="opacity-10 text-center py-20 uppercase font-black tracking-widest italic text-sm tracking-[4px]">Ancora nessun taglio</p>}
@@ -614,7 +627,6 @@
                         )}
                     </div>
 
-                    {/* Navigazione Bottom Permanente */}
                     <div className="fixed bottom-0 left-0 right-0 philia-bg border-t border-[#d4af37]/10 p-5 flex justify-around items-center max-w-xl mx-auto z-50 rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
                         <button onClick={()=>{setView('booking'); setStep(1);}} className={`flex flex-col items-center transition-all ${view === 'booking' ? 'philia-gold scale-125' : 'text-white/20'}`}><IconCalendar /><span className="text-[8px] font-black mt-1 uppercase tracking-widest text-white">PRENOTA</span></button>
                         <button onClick={()=>setView('my-bookings')} className={`flex flex-col items-center transition-all ${view === 'my-bookings' ? 'philia-gold scale-125' : 'text-white/20'}`}><IconClock /><span className="text-[8px] font-black mt-1 uppercase tracking-widest text-center text-white">MIEI TAGLI</span></button>
