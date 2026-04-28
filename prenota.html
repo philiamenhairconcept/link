@@ -339,10 +339,12 @@
             const UnifiedAgenda = () => {
                 const dayTimes = useMemo(() => {
                     const times = [];
-                    for(let h=8; h<=20; h++) {
+                    // Modificato per partire dalle 05:00 fino alle 24:00 di ogni mezz'ora
+                    for(let h=5; h<=23; h++) {
                         times.push(`${h.toString().padStart(2, '0')}:00`);
                         times.push(`${h.toString().padStart(2, '0')}:30`);
                     }
+                    times.push(`24:00`);
                     return times;
                 }, []);
 
@@ -538,6 +540,18 @@
                     )}
                 </div>
             );
+
+            const calendarDays = useMemo(() => {
+                const days = [];
+                const year = calendarViewDate.getFullYear();
+                const month = calendarViewDate.getMonth();
+                const firstDay = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const offset = firstDay === 0 ? 6 : firstDay - 1;
+                for (let i = 0; i < offset; i++) days.push(null);
+                for (let i = 1; i <= daysInMonth; i++) days.push(new Date(year, month, i));
+                return days;
+            }, [calendarViewDate]);
 
             if (loading) return <div className="h-screen flex items-center justify-center bg-[#1a1a1a] text-[#d4af37] font-bold tracking-[5px]">PHILIA...</div>;
 
@@ -739,13 +753,11 @@
                                                 <section className="max-w-4xl mx-auto p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px]">
                                                     <h3 className="philia-gold font-black uppercase italic mb-6 text-center">Nuova Eccezione (Ferie/Orari)</h3>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left">
-                                                        {/* TargetId passato è quello di Simone per l'opzione "Solo Simone" */}
                                                         <ExceptionForm targetId={simoneBarber?.id} isMasterMode={true} />
                                                         
                                                         <div className="max-h-[500px] overflow-y-auto space-y-4 no-scrollbar text-left">
                                                             <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] mb-2">Eccezioni Attive</p>
                                                             
-                                                            {/* Eccezioni Globali */}
                                                             {Object.entries(settings?.dateOverrides || {}).sort().map(([date, h]) => (
                                                                 <div key={date + "_global"} className="bg-[#d4af37]/10 p-4 rounded-2xl border border-[#d4af37]/30 flex justify-between items-center group">
                                                                     <div>
@@ -756,7 +768,6 @@
                                                                 </div>
                                                             ))}
 
-                                                            {/* Eccezioni Individuali */}
                                                             {barbers.map(barber => 
                                                                 Object.entries(barber.dateOverrides || {}).sort().map(([date, h]) => (
                                                                     <div key={date + "_" + barber.id} className="philia-bg p-4 rounded-2xl border border-white/10 flex justify-between items-center group">
