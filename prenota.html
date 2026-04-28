@@ -35,7 +35,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
         // --- ICONE SVG INTERNE ---
         const IconCalendar = () => <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>;
@@ -125,6 +125,40 @@
                 if (!adminUser) return null;
                 return barbers.find(b => b.name.trim().toUpperCase() === adminUser.trim().toUpperCase());
             }, [barbers, adminUser]);
+
+            // --- GESTIONE TASTO INDIETRO (HISTORY API) ---
+            useEffect(() => {
+                // Sostituisce lo stato iniziale appena caricata l'app
+                window.history.replaceState({ view, step, adminUser, adminSubView }, "");
+
+                const handlePopState = (event) => {
+                    if (event.state) {
+                        // Sincronizza lo stato di React con quello della cronologia del browser
+                        setView(event.state.view);
+                        setStep(event.state.step);
+                        setAdminUser(event.state.adminUser);
+                        setAdminSubView(event.state.adminSubView);
+                    }
+                };
+
+                window.addEventListener('popstate', handlePopState);
+                return () => window.removeEventListener('popstate', handlePopState);
+            }, []);
+
+            // Ogni volta che view o step cambiano via codice (click utente), aggiunge una voce alla history
+            useEffect(() => {
+                const currentState = window.history.state;
+                if (currentState) {
+                    const hasChanged = currentState.view !== view || 
+                                     currentState.step !== step || 
+                                     currentState.adminUser !== adminUser || 
+                                     currentState.adminSubView !== adminSubView;
+                    
+                    if (hasChanged) {
+                        window.history.pushState({ view, step, adminUser, adminSubView }, "");
+                    }
+                }
+            }, [view, step, adminUser, adminSubView]);
 
             useEffect(() => {
                 auth.onAuthStateChanged(async (u) => {
