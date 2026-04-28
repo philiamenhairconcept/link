@@ -37,7 +37,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- ICONE SVG INTERNE ---
+        // --- ICONE SVG ---
         const IconCalendar = () => <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>;
         const IconClock = () => <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>;
         const IconUser = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>;
@@ -85,7 +85,7 @@
         const MONTHS_NAME = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
 
         function App() {
-            // --- STATI ---
+            // --- STATI PRINCIPALI ---
             const [clientPhone, setClientPhone] = useState(localStorage.getItem('philia_phone') || "");
             const [clientName, setClientName] = useState(localStorage.getItem('philia_name') || "");
             const [isIdentified, setIsIdentified] = useState(!!localStorage.getItem('philia_phone'));
@@ -128,6 +128,7 @@
                     }
                 };
                 window.addEventListener('popstate', handlePopState);
+                window.history.replaceState({ view, step, adminSubView, adminUser }, "");
                 return () => window.removeEventListener('popstate', handlePopState);
             }, []);
 
@@ -138,7 +139,6 @@
                 isPopState.current = false;
             }, [view, step, adminSubView, adminUser]);
 
-            // --- FIREBASE DATA ---
             useEffect(() => {
                 auth.onAuthStateChanged(async (u) => {
                     if (!u) await auth.signInAnonymously();
@@ -266,169 +266,13 @@
                 setCalendarViewDate(newDate);
             };
 
-            const changeBookingDate = (offset) => {
-                const current = new Date(selectedDate + 'T00:00:00');
-                current.setDate(current.getDate() + offset);
-                const today = new Date();
-                today.setHours(0,0,0,0);
-                if (current < today) return;
-                setSelectedDate(current.toLocaleDateString('sv-SE'));
-            };
-
-            const addOrUpdateService = async () => {
-                if (!editingService.name || !editingService.price) return alert("Dati obbligatori mancanti.");
-                const coll = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services');
-                const { firestoreId, ...dataToSave } = editingService;
-                if (firestoreId) await coll.doc(firestoreId).update(dataToSave);
-                else await coll.add({ ...dataToSave, id: Date.now().toString() });
-                setEditingService({ name: '', price: '', desc: '', duration: 30, firestoreId: null });
-                alert("Catalogo aggiornato!");
-            };
-
-            const deleteService = async (id) => {
-                if (confirm("Eliminare definitivamente?")) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services').doc(id).delete();
-            };
-
-            const forceResetCatalog = async () => {
-                if(confirm("Ripristinare i 20 servizi base?")) {
-                    const coll = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services');
-                    INITIAL_SERVICES.forEach(s => coll.add(s));
-                    alert("Listino pronto!");
-                }
-            };
-
-            const toggleSkill = async (barberId, barberSkills, serviceId) => {
-                const skillsArr = barberSkills || [];
-                const newSkills = skillsArr.includes(serviceId) ? skillsArr.filter(id => id !== serviceId) : [...skillsArr, serviceId];
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(barberId).update({ skills: newSkills });
-            };
-
-            const addNewBarber = async () => {
-                const name = prompt("Nome barbiere:").toUpperCase(); if (!name) return;
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').add({
-                    name: name, skills: services.map(s => s.firestoreId), order: barbers.length + 1, personalSchedule: {}, dateOverrides: {}
-                });
-            };
-
-            const removeBarber = async (id, name) => {
-                if (confirm(`Rimuovere ${name}?`)) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(id).delete();
-            };
-
-            const changeAgendaDate = (offset) => {
-                const current = new Date(adminAgendaDate + 'T00:00:00');
-                current.setDate(current.getDate() + offset);
-                setAdminAgendaDate(current.toLocaleDateString('sv-SE'));
-            };
-
-            const addDateOverride = async (targetId, isGlobal = false) => {
-                if (!newExc.date) return alert("Scegli una data.");
-                const payload = { 
-                    open: newExc.open, am: newExc.am, pm: newExc.pm, 
-                    amActive: newExc.amActive, pmActive: newExc.pmActive 
-                };
-                if (isGlobal) {
-                    const newOverrides = { ...(settings.dateOverrides || {}) };
-                    newOverrides[newExc.date] = payload;
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('schedule').update({ dateOverrides: newOverrides });
-                } else {
-                    const bId = targetId || simoneBarber?.id;
-                    const b = barbers.find(x => x.id === bId);
-                    if(!b) return alert("Errore b.");
-                    const newOverrides = { ...(b.dateOverrides || {}) };
-                    newOverrides[newExc.date] = payload;
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(b.id).update({ dateOverrides: newOverrides });
-                }
-                setNewExc({ date: '', open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true });
-                alert("Salvato correttamente!");
-            };
-
-            const removeDateOverride = async (targetId, dateKey, isGlobal = false) => {
-                if (isGlobal) {
-                    const newOverrides = { ...settings.dateOverrides }; delete newOverrides[dateKey];
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('schedule').update({ dateOverrides: newOverrides });
-                } else {
-                    const barber = barbers.find(b => b.id === targetId);
-                    const newOverrides = { ...barber.dateOverrides }; delete newOverrides[dateKey];
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(targetId).update({ dateOverrides: newOverrides });
-                }
-            };
-
-            const updateSchedule = async (day, field, value) => {
-                if (!settings) return;
-                const newOpeningHours = { ...settings.openingHours };
-                const dayData = { ...newOpeningHours[day] };
-                if (field === 'open') dayData.open = value;
-                if (field === 'am_start') dayData.am[0] = value;
-                if (field === 'am_end') dayData.am[1] = value;
-                if (field === 'pm_start') dayData.pm[0] = value;
-                if (field === 'pm_end') dayData.pm[1] = value;
-                newOpeningHours[day] = dayData;
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('schedule').update({ openingHours: newOpeningHours });
-            };
-
             const updateStaffPassword = async () => {
                 if (tempStaffPwd.length < 4) return alert("Password troppo corta.");
                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('auth').set({ password: tempStaffPwd });
-                alert("Password aggiornata!");
+                alert("Password Staff aggiornata!");
             };
 
-            // --- COMPONENTI UI ---
-            const AgendaDateNavAdmin = () => (
-                <div className="flex flex-col md:flex-row justify-between items-center bg-[#332d2d] p-6 rounded-[35px] border border-[#d4af37]/20 shadow-2xl gap-6 mb-6">
-                    <div className="flex items-center gap-6">
-                        <button onClick={() => changeAgendaDate(-1)} className="w-12 h-12 flex items-center justify-center bg-black/20 hover:bg-[#d4af37] rounded-full border border-[#d4af37]/20 font-black text-xl text-white">←</button>
-                        <div className="text-center text-white">
-                            <input type="date" value={adminAgendaDate} onChange={(e) => setAdminAgendaDate(e.target.value)} className="bg-transparent text-[#d4af37] font-black text-2xl outline-none text-center cursor-pointer" />
-                            <p className="text-[10px] uppercase philia-gold font-bold tracking-[3px] mt-1">{new Date(adminAgendaDate + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long' })}</p>
-                        </div>
-                        <button onClick={() => changeAgendaDate(1)} className="w-12 h-12 flex items-center justify-center bg-black/20 hover:bg-[#d4af37] rounded-full border border-[#d4af37]/20 font-black text-xl text-white">→</button>
-                    </div>
-                    <button onClick={() => setAdminAgendaDate(new Date().toLocaleDateString('sv-SE'))} className="px-8 py-3 bg-[#d4af37] text-[#332d2d] rounded-2xl font-black uppercase text-xs tracking-widest hover:scale-105 transition-all shadow-lg">Oggi</button>
-                </div>
-            );
-
-            const ExceptionForm = ({ targetId, isMasterMode = false }) => (
-                <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5">
-                    <div className="space-y-1 text-left">
-                        <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white">Scegli Data</label>
-                        <input type="date" value={newExc.date} onChange={(e)=>setNewExc({...newExc, date: e.target.value})} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none" />
-                    </div>
-                    <button onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`w-full p-4 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600' : 'bg-red-500/20 text-red-500'}`}>{newExc.open ? 'Giorno Aperto (Imposta Orari)' : 'Giorno Chiuso (Ferie)'}</button>
-                    {newExc.open && (
-                        <div className="space-y-6 pt-4 border-t border-white/5">
-                            <div className="space-y-3 text-white">
-                                <div className="flex justify-between items-center px-2">
-                                    <span className="text-[10px] font-black uppercase philia-gold">Mattina (AM)</span>
-                                    <button onClick={()=>setNewExc({...newExc, amActive: !newExc.amActive})} className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${newExc.amActive ? 'bg-[#d4af37] text-[#332d2d]' : 'bg-white/5 text-white/20'}`}>{newExc.amActive ? 'ATTIVA' : 'OFF'}</button>
-                                </div>
-                                <div className={`grid grid-cols-2 gap-3 ${newExc.amActive ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
-                                    <input type="time" value={newExc.am[0]} onChange={(e)=>setNewExc({...newExc, am:[e.target.value, newExc.am[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white outline-none" />
-                                    <input type="time" value={newExc.am[1]} onChange={(e)=>setNewExc({...newExc, am:[newExc.am[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white outline-none" />
-                                </div>
-                            </div>
-                            <div className="space-y-3 text-white">
-                                <div className="flex justify-between items-center px-2">
-                                    <span className="text-[10px] font-black uppercase philia-gold">Pomeriggio (PM)</span>
-                                    <button onClick={()=>setNewExc({...newExc, pmActive: !newExc.pmActive})} className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${newExc.pmActive ? 'bg-[#d4af37] text-[#332d2d]' : 'bg-white/5 text-white/20'}`}>{newExc.pmActive ? 'ATTIVA' : 'OFF'}</button>
-                                </div>
-                                <div className={`grid grid-cols-2 gap-3 ${newExc.pmActive ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
-                                    <input type="time" value={newExc.pm[0]} onChange={(e)=>setNewExc({...newExc, pm:[e.target.value, newExc.pm[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white outline-none" />
-                                    <input type="time" value={newExc.pm[1]} onChange={(e)=>setNewExc({...newExc, pm:[newExc.pm[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white outline-none" />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    {isMasterMode ? (
-                        <div className="grid grid-cols-2 gap-3 mt-4">
-                            <button onClick={()=>addDateOverride(null, true)} className="philia-btn p-4 rounded-xl font-black uppercase text-[10px] shadow-lg text-[#332d2d]">Tutto Salone</button>
-                            <button onClick={()=>addDateOverride(targetId, false)} className="bg-white/10 p-4 rounded-xl font-black uppercase text-[10px] text-white">Solo Simone</button>
-                        </div>
-                    ) : (
-                        <button onClick={()=>addDateOverride(targetId, false)} className="w-full philia-btn p-4 rounded-xl font-black uppercase text-xs shadow-lg mt-4 text-[#332d2d]">Salva Eccezione</button>
-                    )}
-                </div>
-            );
-
+            // --- COMPONENTI INTERNI ---
             const AppointmentCard = ({ b }) => (
                 <div className="bg-[#1a1a1a] p-5 rounded-[25px] border-l-8 border-[#d4af37] relative group hover:bg-[#252525] transition-all shadow-lg text-left mb-4">
                     <div className="flex justify-between items-start mb-2">
@@ -456,13 +300,69 @@
                 </div>
             );
 
+            const AgendaDateNavAdmin = () => (
+                <div className="flex flex-col md:flex-row justify-between items-center bg-[#332d2d] p-6 rounded-[35px] border border-[#d4af37]/20 shadow-2xl gap-6 mb-6">
+                    <div className="flex items-center gap-6">
+                        <button onClick={() => changeAgendaDate(-1)} className="w-12 h-12 flex items-center justify-center bg-black/20 hover:bg-[#d4af37] rounded-full border border-[#d4af37]/20 font-black text-xl text-white">←</button>
+                        <div className="text-center text-white">
+                            <input type="date" value={adminAgendaDate} onChange={(e) => setAdminAgendaDate(e.target.value)} className="bg-transparent text-[#d4af37] font-black text-2xl outline-none text-center cursor-pointer" />
+                            <p className="text-[10px] uppercase philia-gold font-bold tracking-[3px] mt-1">{new Date(adminAgendaDate + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long' })}</p>
+                        </div>
+                        <button onClick={() => changeAgendaDate(1)} className="w-12 h-12 flex items-center justify-center bg-black/20 hover:bg-[#d4af37] rounded-full border border-[#d4af37]/20 font-black text-xl text-white">→</button>
+                    </div>
+                    <button onClick={() => setAdminAgendaDate(new Date().toLocaleDateString('sv-SE'))} className="px-8 py-3 bg-[#d4af37] text-[#332d2d] rounded-2xl font-black uppercase text-xs tracking-widest hover:scale-105 transition-all shadow-lg text-white">Oggi</button>
+                </div>
+            );
+
+            const ExceptionForm = ({ targetId, isMasterMode = false }) => (
+                <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5">
+                    <div className="space-y-1 text-left">
+                        <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white">Scegli Data</label>
+                        <input type="date" value={newExc.date} onChange={(e)=>setNewExc({...newExc, date: e.target.value})} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none" />
+                    </div>
+                    <button onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`w-full p-4 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600' : 'bg-red-500/20 text-red-500'}`}>{newExc.open ? 'Giorno Aperto (Imposta Orari)' : 'Giorno Chiuso (Ferie)'}</button>
+                    {newExc.open && (
+                        <div className="space-y-6 pt-4 border-t border-white/5">
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center px-2 text-white">
+                                    <span className="text-[10px] font-black uppercase philia-gold">Mattina (AM)</span>
+                                    <button onClick={()=>setNewExc({...newExc, amActive: !newExc.amActive})} className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${newExc.amActive ? 'bg-[#d4af37] text-[#332d2d]' : 'bg-white/5 text-white/20'}`}>{newExc.amActive ? 'ATTIVA' : 'OFF'}</button>
+                                </div>
+                                <div className={`grid grid-cols-2 gap-3 ${newExc.amActive ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
+                                    <input type="time" value={newExc.am[0]} onChange={(e)=>setNewExc({...newExc, am:[e.target.value, newExc.am[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white outline-none" />
+                                    <input type="time" value={newExc.am[1]} onChange={(e)=>setNewExc({...newExc, am:[newExc.am[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white outline-none" />
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center px-2 text-white">
+                                    <span className="text-[10px] font-black uppercase philia-gold">Pomeriggio (PM)</span>
+                                    <button onClick={()=>setNewExc({...newExc, pmActive: !newExc.pmActive})} className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${newExc.pmActive ? 'bg-[#d4af37] text-[#332d2d]' : 'bg-white/5 text-white/20'}`}>{newExc.pmActive ? 'ATTIVA' : 'OFF'}</button>
+                                </div>
+                                <div className={`grid grid-cols-2 gap-3 ${newExc.pmActive ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
+                                    <input type="time" value={newExc.pm[0]} onChange={(e)=>setNewExc({...newExc, pm:[e.target.value, newExc.pm[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white outline-none" />
+                                    <input type="time" value={newExc.pm[1]} onChange={(e)=>setNewExc({...newExc, pm:[newExc.pm[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white outline-none" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {isMasterMode ? (
+                        <div className="grid grid-cols-2 gap-3 mt-4">
+                            <button onClick={()=>addDateOverride(null, true)} className="philia-btn p-4 rounded-xl font-black uppercase text-[10px] shadow-lg text-[#332d2d]">Tutto Salone</button>
+                            <button onClick={()=>addDateOverride(targetId, false)} className="bg-white/10 p-4 rounded-xl font-black uppercase text-[10px] text-white">Solo Simone</button>
+                        </div>
+                    ) : (
+                        <button onClick={()=>addDateOverride(targetId, false)} className="w-full philia-btn p-4 rounded-xl font-black uppercase text-xs shadow-lg mt-4 text-[#332d2d]">Salva Eccezione</button>
+                    )}
+                </div>
+            );
+
             if (loading) return <div className="h-screen flex items-center justify-center bg-[#1a1a1a] text-[#d4af37] font-bold tracking-[5px]">PHILIA...</div>;
 
             if (!isIdentified) return (
                 <div className="h-screen flex items-center justify-center bg-[#1a1a1a] p-6 text-center">
                     <div className="fade-in max-w-sm w-full philia-bg p-10 rounded-[40px] border border-[#d4af37]/20 shadow-2xl text-white">
                         <img src="logo.png" alt="Philia Logo" className="w-72 mx-auto mb-10 object-contain text-white" />
-                        <p className="text-white/80 text-2xl uppercase tracking-[4px] mb-10 font-black">Benvenuto!</p>
+                        <p className="text-white/80 text-2xl uppercase tracking-[4px] mb-10 font-black text-white">Benvenuto!</p>
                         <div className="space-y-4 mb-8 text-left text-white">
                             <input type="text" value={clientName} onChange={(e)=>setClientName(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:border-[#d4af37]" placeholder="Nome e Cognome" />
                             <input type="tel" value={clientPhone} onChange={(e)=>setClientPhone(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-2xl text-white font-bold outline-none focus:border-[#d4af37]" placeholder="Cellulare" />
@@ -475,41 +375,40 @@
 
             return (
                 <div className="app-container min-h-screen pb-24 shadow-2xl relative bg-[#1a1a1a] flex flex-col overflow-hidden text-white">
-                    {/* Header */}
-                    <div className="p-6 philia-bg border-b border-[#d4af37]/20 flex justify-between items-center sticky top-0 z-50 text-white">
+                    <div className="p-6 philia-bg border-b border-[#d4af37]/20 flex justify-between items-center sticky top-0 z-50">
                         <div className="flex items-center gap-3">
                             <img src="logo.png" alt="Philia" className="h-8 w-auto text-white" />
-                            <h1 className="text-xl font-black philia-gold uppercase italic leading-none">Philia</h1>
+                            <h1 className="text-xl font-black philia-gold uppercase italic leading-none text-white text-white text-white">Philia</h1>
                         </div>
-                        <button onClick={() => { if(prompt("Password:") === staffPassword) setView('admin-login'); }} className="text-white/10 hover:text-[#d4af37] p-2 transition-colors">⚙️</button>
+                        <button onClick={() => { if(prompt("Password:") === staffPassword) setView('admin-login'); }} className="text-white/10 hover:text-[#d4af37] p-2 transition-colors text-white">⚙️</button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar text-white">
+                    <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar">
                         {view === 'booking' && (
                             <div className="fade-in max-w-xl mx-auto text-center">
                                 {step === 1 && (
                                     <div className="grid grid-cols-1 gap-4">
-                                        <h2 className="text-xl font-black philia-gold italic uppercase mb-6 tracking-widest text-white">Scegli con chi prenotare</h2>
+                                        <h2 className="text-xl font-black philia-gold italic uppercase mb-6 tracking-widest">Scegli con chi prenotare</h2>
                                         {barbers.map(b => (
                                             <button key={b.id} onClick={()=>{setSelectedBarber(b); setStep(2);}} className="w-full philia-bg p-8 rounded-[30px] border-2 border-white/5 hover:border-[#d4af37] font-black uppercase italic text-2xl tracking-widest transition-all shadow-xl text-center text-white">{b.name}</button>
                                         ))}
                                     </div>
                                 )}
                                 {step === 2 && (
-                                    <div className="fade-in text-white">
-                                        <button onClick={() => window.history.back()} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest text-white">← Indietro</button>
-                                        <h2 className="text-xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 uppercase italic leading-tight text-left text-white">Servizi di {selectedBarber.name}</h2>
+                                    <div className="fade-in">
+                                        <button onClick={() => window.history.back()} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest">← Indietro</button>
+                                        <h2 className="text-xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 uppercase italic leading-tight text-left">Servizi di {selectedBarber.name}</h2>
                                         <div className="grid gap-3">
                                             {services.filter(s => (selectedBarber.skills || []).includes(s.firestoreId)).map(s => (
                                                 <button key={s.firestoreId} onClick={()=>{setSelectedService(s); setStep(3);}} className="w-full philia-bg p-6 rounded-2xl border border-white/5 flex justify-between items-center hover:border-[#d4af37] transition-all text-left">
                                                     <div className="flex-1 pr-4">
                                                         <div className="font-bold text-lg uppercase leading-tight">{s.name}</div>
-                                                        <p className="text-[11px] opacity-50 mt-1 italic leading-relaxed text-white">{s.desc}</p>
+                                                        <p className="text-[11px] opacity-50 mt-1 italic leading-relaxed">{s.desc}</p>
                                                         <div className="mt-2 inline-block bg-[#d4af37]/10 px-2 py-0.5 rounded border border-[#d4af37]/20">
                                                             <span className="text-[10px] philia-gold font-black uppercase">{s.duration} MINUTI</span>
                                                         </div>
                                                     </div>
-                                                    <p className="philia-gold font-black text-2xl italic whitespace-nowrap text-white">€{s.price}</p>
+                                                    <p className="philia-gold font-black text-2xl italic whitespace-nowrap">€{s.price}</p>
                                                 </button>
                                             ))}
                                         </div>
@@ -517,11 +416,10 @@
                                 )}
                                 {step === 3 && (
                                     <div className="fade-in text-white">
-                                        <button onClick={() => window.history.back()} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest text-white">← Indietro</button>
-                                        
-                                        <div className="bg-[#332d2d] rounded-[30px] p-6 mb-8 border border-white/10 shadow-2xl text-white">
+                                        <button onClick={() => window.history.back()} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest">← Indietro</button>
+                                        <div className="bg-[#332d2d] rounded-[30px] p-6 mb-8 border border-white/10 shadow-2xl">
                                             <div className="flex justify-between items-center mb-6">
-                                                <h3 className="text-xl font-black philia-gold uppercase italic tracking-tighter text-white">
+                                                <h3 className="text-xl font-black philia-gold uppercase italic tracking-tighter">
                                                     {MONTHS_NAME[calendarViewDate.getMonth()]} {calendarViewDate.getFullYear()}
                                                 </h3>
                                                 <div className="flex gap-2">
@@ -529,13 +427,11 @@
                                                     <button onClick={() => changeMonth(1)} className="w-10 h-10 flex items-center justify-center bg-black/20 rounded-full text-white hover:bg-[#d4af37] hover:text-black transition-all">→</button>
                                                 </div>
                                             </div>
-
-                                            <div className="grid grid-cols-7 gap-1 mb-2 text-white">
+                                            <div className="grid grid-cols-7 gap-1 mb-2">
                                                 {["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"].map(d => (
                                                     <div key={d} className="text-[10px] font-black opacity-30 text-center">{d}</div>
                                                 ))}
                                             </div>
-
                                             <div className="grid grid-cols-7 gap-2">
                                                 {calendarDays.map((day, idx) => {
                                                     if (!day) return <div key={idx} className="h-12"></div>;
@@ -561,11 +457,10 @@
                                                 })}
                                             </div>
                                         </div>
-
-                                        <div className="max-w-md mx-auto text-white">
+                                        <div className="max-w-md mx-auto">
                                             <div className="flex items-center justify-center gap-3 mb-6">
                                                 <div className="h-[1px] bg-white/10 flex-1"></div>
-                                                <h4 className="text-[10px] font-black uppercase tracking-[4px] philia-gold text-center italic text-white">Slot {new Date(selectedDate).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}</h4>
+                                                <h4 className="text-[10px] font-black uppercase tracking-[4px] philia-gold text-center italic">Slot {new Date(selectedDate).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}</h4>
                                                 <div className="h-[1px] bg-white/10 flex-1"></div>
                                             </div>
                                             <div className="grid grid-cols-1 gap-3">
@@ -584,13 +479,13 @@
                                     </div>
                                 )}
                                 {step === 4 && (
-                                    <div className="fade-in space-y-6 text-center text-white">
-                                        <button onClick={() => window.history.back()} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest text-white">← Indietro</button>
-                                        <div className="philia-bg p-8 rounded-[40px] border border-[#d4af37]/20 shadow-2xl text-center">
+                                    <div className="fade-in space-y-6 text-center">
+                                        <button onClick={() => window.history.back()} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest">← Indietro</button>
+                                        <div className="philia-bg p-8 rounded-[40px] border border-[#d4af37]/20 shadow-2xl text-center text-white">
                                             <p className="font-black text-2xl philia-gold uppercase italic mb-8 leading-tight">{selectedService.name}</p>
-                                            <div className="bg-black/20 py-6 px-10 rounded-3xl border border-white/5 inline-block text-white text-white">
+                                            <div className="bg-black/20 py-6 px-10 rounded-3xl border border-white/5 inline-block text-white">
                                                 <p className="font-bold text-lg mb-1 tracking-tight text-white">{selectedDate}</p>
-                                                <p className="philia-gold font-black text-4xl italic">{selectedSlot}</p>
+                                                <p className="philia-gold font-black text-4xl italic text-white">{selectedSlot}</p>
                                             </div>
                                         </div>
                                         <button onClick={handleConfirm} className="w-full philia-btn p-6 rounded-[30px] font-black text-xl uppercase shadow-2xl active:scale-95 transition-all text-[#332d2d]">CONFERMA</button>
@@ -600,22 +495,22 @@
                         )}
 
                         {view === 'admin-login' && (
-                            <div className="fade-in max-w-xl mx-auto py-10 text-center text-white text-white text-white">
+                            <div className="fade-in max-w-xl mx-auto py-10 text-center">
                                 <h2 className="text-3xl font-black philia-gold mb-12 italic uppercase tracking-widest text-white">Accesso Team</h2>
-                                <div className="grid gap-4 text-white">
+                                <div className="grid gap-4">
                                     <button onClick={()=>{setAdminUser('SIMONE'); setView('admin'); setAdminSubView('agenda');}} className="w-full philia-btn p-8 rounded-3xl font-black text-2xl italic uppercase shadow-2xl text-[#332d2d]">SIMONE (MASTER)</button>
                                     {barbers.filter(b => b.name.trim().toUpperCase() !== 'SIMONE').map(b => (
-                                        <button key={b.id} onClick={()=>{setAdminUser(b.name); setView('admin'); setAdminSubView('agenda');}} className="w-full philia-bg p-6 rounded-3xl font-black text-xl italic border border-white/10 hover:border-[#d4af37] transition-all text-center uppercase text-white text-white">{b.name}</button>
+                                        <button key={b.id} onClick={()=>{setAdminUser(b.name); setView('admin'); setAdminSubView('agenda');}} className="w-full philia-bg p-6 rounded-3xl font-black text-xl italic border border-white/10 hover:border-[#d4af37] transition-all text-center uppercase text-white">{b.name}</button>
                                     ))}
-                                    <button onClick={()=>setView('booking')} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest">Torna al Salone</button>
+                                    <button onClick={()=>setView('booking')} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest text-white">Torna al Salone</button>
                                 </div>
                             </div>
                         )}
 
                         {view === 'admin' && (
-                            <div className="space-y-6 pb-20 fade-in text-white text-white">
+                            <div className="space-y-6 pb-20 fade-in text-white">
                                 {adminUser === 'SIMONE' && (
-                                    <div className="flex gap-2 p-2 bg-black/40 rounded-3xl mb-8 border border-white/5 shadow-2xl text-white">
+                                    <div className="flex gap-2 p-2 bg-black/40 rounded-3xl mb-8 border border-white/5 shadow-2xl">
                                         <button onClick={() => setAdminSubView('agenda')} className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs transition-all ${adminSubView === 'agenda' ? 'philia-btn shadow-xl scale-105 text-[#332d2d]' : 'text-white/20'}`}>Agenda</button>
                                         <button onClick={() => setAdminSubView('gestione')} className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs transition-all ${adminSubView === 'gestione' ? 'philia-btn shadow-xl scale-105 text-[#332d2d]' : 'text-white/20'}`}>Salone</button>
                                         <button onClick={() => setAdminSubView('catalogo')} className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs transition-all ${adminSubView === 'catalogo' ? 'philia-btn shadow-xl scale-105 text-[#332d2d]' : 'text-white/20'}`}>Catalogo</button>
@@ -632,15 +527,15 @@
                                 {adminUser === 'SIMONE' ? (
                                     <div className="space-y-12">
                                         {adminSubView === 'agenda' && (
-                                            <div className="space-y-6 fade-in text-white text-white">
+                                            <div className="space-y-6 fade-in text-white">
                                                 <AgendaDateNavAdmin />
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-white">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                                     {barbers.map(barber => {
                                                         const dayBookings = bookings.filter(b => b.barberId === barber.id && b.date === adminAgendaDate).sort((a, b) => a.time.localeCompare(b.time));
                                                         return (
-                                                            <div key={barber.id} className="philia-bg rounded-[40px] border border-white/5 flex flex-col min-h-[500px] shadow-2xl overflow-hidden text-white">
+                                                            <div key={barber.id} className="philia-bg rounded-[40px] border border-white/5 flex flex-col min-h-[500px] shadow-2xl overflow-hidden">
                                                                 <div className="p-6 border-b border-[#d4af37]/20 text-center bg-gradient-to-b from-black/20 to-transparent">
-                                                                    <h4 className="philia-gold font-black uppercase italic tracking-tighter text-2xl leading-none text-white">{barber.name}</h4>
+                                                                    <h4 className="philia-gold font-black uppercase italic tracking-tighter text-2xl leading-none">{barber.name}</h4>
                                                                     <div className="mt-2 flex items-center justify-center gap-2">
                                                                         <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span>
                                                                         <p className="text-[10px] opacity-40 uppercase font-black tracking-widest">{dayBookings.length} APPUNTAMENTI</p>
@@ -648,7 +543,6 @@
                                                                 </div>
                                                                 <div className="p-5 flex-1 overflow-y-auto no-scrollbar">
                                                                     {dayBookings.map(b => <AppointmentCard key={b.id} b={b} />)}
-                                                                    {dayBookings.length === 0 && <p className="text-center py-20 opacity-10 italic uppercase text-[10px]">Libero</p>}
                                                                 </div>
                                                             </div>
                                                         );
@@ -665,10 +559,10 @@
                                                         <button onClick={forceResetCatalog} className="bg-red-600/20 text-red-500 border border-red-500/50 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all text-white">Reset Listino</button>
                                                     </div>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left text-white">
-                                                        <input type="text" placeholder="Nome" value={editingService.name} onChange={(e)=>setEditingService({...editingService, name: e.target.value})} className="bg-black/40 p-4 rounded-xl outline-none border border-white/10 text-white" />
+                                                        <input type="text" placeholder="Nome" value={editingService.name} onChange={(e)=>setEditingService({...editingService, name: e.target.value})} className="bg-black/40 p-4 rounded-xl outline-none border border-white/10 text-white text-white" />
                                                         <input type="number" placeholder="Prezzo" value={editingService.price} onChange={(e)=>setEditingService({...editingService, price: Number(e.target.value)})} className="bg-black/40 p-4 rounded-xl outline-none border border-white/10 text-white text-white" />
                                                         <input type="text" placeholder="Descrizione" value={editingService.desc} onChange={(e)=>setEditingService({...editingService, desc: e.target.value})} className="bg-black/40 p-4 rounded-xl outline-none border border-white/10 md:col-span-2 text-white text-white" />
-                                                        <input type="number" placeholder="Minuti" value={editingService.duration} onChange={(e)=>setEditingService({...editingService, duration: Number(e.target.value)})} className="bg-black/40 p-4 rounded-xl outline-none border border-white/10 text-white text-white text-white" />
+                                                        <input type="number" placeholder="Minuti" value={editingService.duration} onChange={(e)=>setEditingService({...editingService, duration: Number(e.target.value)})} className="bg-black/40 p-4 rounded-xl outline-none border border-white/10 text-white text-white" />
                                                         <button onClick={addOrUpdateService} className="philia-btn p-4 rounded-xl font-black uppercase text-xs text-[#332d2d] h-14">Salva</button>
                                                     </div>
                                                 </div>
@@ -676,12 +570,12 @@
                                                     {services.map(s => (
                                                         <div key={s.firestoreId} className="philia-bg p-6 rounded-3xl border border-white/5 flex justify-between items-center group text-left">
                                                             <div className="flex-1 pr-4">
-                                                                <p className="font-black text-lg uppercase leading-none mb-1 text-white">{s.name}</p>
+                                                                <p className="font-black text-lg uppercase leading-none mb-1">{s.name}</p>
                                                                 <p className="text-[11px] opacity-50 italic mb-2 leading-relaxed text-white text-white text-white">{s.desc}</p>
                                                                 <p className="text-[11px] philia-gold uppercase font-black">€{s.price} • {s.duration} min</p>
                                                             </div>
-                                                            <div className="flex gap-2">
-                                                                <button onClick={()=>setEditingService(s)} className="p-3 bg-blue-500/10 text-blue-400 rounded-xl text-[10px] font-black uppercase text-white">Edit</button>
+                                                            <div className="flex gap-2 text-white">
+                                                                <button onClick={()=>setEditingService(s)} className="p-3 bg-blue-500/10 text-blue-400 rounded-xl text-[10px] font-black uppercase">Edit</button>
                                                                 <button onClick={()=>deleteService(s.firestoreId)} className="p-3 bg-red-500/10 text-red-500 rounded-xl text-[10px] font-black uppercase text-white text-white text-white">Del</button>
                                                             </div>
                                                         </div>
@@ -691,7 +585,7 @@
                                         )}
 
                                         {adminSubView === 'gestione' && (
-                                            <div className="space-y-12 fade-in text-white text-white text-white">
+                                            <div className="space-y-12 fade-in text-white">
                                                 <section className="max-w-4xl mx-auto p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] text-white">
                                                     <h3 className="philia-gold font-black uppercase italic mb-6 text-center text-white">Eccezioni Calendario</h3>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left text-white">
@@ -727,10 +621,10 @@
                                                 </section>
 
                                                 <section className="max-w-4xl mx-auto p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] text-white text-white">
-                                                    <h3 className="philia-gold font-black uppercase italic mb-6 text-center text-white text-white">Sicurezza Accesso Staff</h3>
+                                                    <h3 className="philia-gold font-black uppercase italic mb-6 text-center text-white text-white text-white">Sicurezza Accesso Staff</h3>
                                                     <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5 text-white">
-                                                        <div className="space-y-1 text-white">
-                                                            <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white text-white text-white">Nuova Password</label>
+                                                        <div className="space-y-1 text-white text-white">
+                                                            <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white text-white">Nuova Password Staff</label>
                                                             <input type="text" value={tempStaffPwd} onChange={(e)=>setTempStaffPwd(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none" />
                                                         </div>
                                                         <button onClick={updateStaffPassword} className="w-full philia-btn p-5 rounded-2xl font-black uppercase text-xs shadow-xl text-[#332d2d] transition-all hover:scale-105 active:scale-95 text-white">Salva Password</button>
@@ -738,20 +632,20 @@
                                                 </section>
 
                                                 <section className="max-w-5xl mx-auto space-y-6 text-left">
-                                                    <div className="flex justify-between items-center border-l-4 border-[#d4af37] pl-4 text-white">
+                                                    <div className="flex justify-between items-center border-l-4 border-[#d4af37] pl-4 text-white text-white text-white">
                                                         <h3 className="philia-gold font-black uppercase italic text-xl leading-none">Organico e Competenze</h3>
                                                         <button onClick={addNewBarber} className="philia-btn px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 text-white">Aggiungi +</button>
                                                     </div>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-white text-white">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-white">
                                                         {barbers.map(barber => (
                                                             <div key={barber.id} className="philia-bg p-6 rounded-[35px] border border-white/5 relative text-white">
-                                                                {barber.name.trim().toUpperCase() !== 'SIMONE' && <button onClick={()=>removeBarber(barber.id, barber.name)} className="absolute top-5 right-5 text-red-500/20 hover:text-red-500 transition-colors text-white text-white">✕</button>}
-                                                                <h4 className="text-center philia-gold font-black uppercase italic mb-6 border-b border-white/10 pb-3 leading-none text-white text-white">{barber.name}</h4>
+                                                                {barber.name.trim().toUpperCase() !== 'SIMONE' && <button onClick={()=>removeBarber(barber.id, barber.name)} className="absolute top-5 right-5 text-red-500/20 hover:text-red-500 transition-colors">✕</button>}
+                                                                <h4 className="text-center philia-gold font-black uppercase italic mb-6 border-b border-white/10 pb-3 leading-none text-white text-white text-white">{barber.name}</h4>
                                                                 <div className="space-y-2 text-white">
                                                                     {services.map(s => {
                                                                         const isSelected = (barber.skills || []).includes(s.firestoreId);
                                                                         return (
-                                                                            <button key={s.firestoreId} onClick={() => toggleSkill(barber.id, barber.skills || [], s.firestoreId)} className={`w-full text-left p-2.5 rounded-xl text-[9px] font-black uppercase transition-all flex justify-between items-center ${isSelected ? 'bg-[#d4af37]/10 text-[#d4af37]' : 'bg-black/10 opacity-30 text-white'}`}>
+                                                                            <button key={s.firestoreId} onClick={() => toggleSkill(barber.id, barber.skills || [], s.firestoreId)} className={`w-full text-left p-2.5 rounded-xl text-[9px] font-black uppercase transition-all flex justify-between items-center ${isSelected ? 'bg-[#d4af37]/10 text-[#d4af37]' : 'bg-black/10 opacity-30 text-white text-white'}`}>
                                                                                 {s.name}
                                                                                 <div className={`w-3.5 h-3.5 rounded-full border border-white/10 ${isSelected ? 'bg-[#d4af37]' : 'bg-transparent text-white'}`}></div>
                                                                             </button>
@@ -767,12 +661,12 @@
                                     </div>
                                 ) : (
                                     /* --- VISTA COLLABORATORE (ALESSANDRO, CATELLO, ETC) --- */
-                                    <div className="space-y-12 text-white text-white text-white text-white">
+                                    <div className="space-y-12 text-white text-white text-white">
                                         <AgendaDateNavAdmin />
                                         <div className="max-w-xl mx-auto text-white text-white">
                                             <div className="philia-bg rounded-[40px] border border-white/5 flex flex-col min-h-[500px] shadow-2xl overflow-hidden">
-                                                <div className="p-6 border-b border-[#d4af37]/20 text-center bg-gradient-to-b from-black/20 to-transparent text-white">
-                                                    <h4 className="philia-gold font-black uppercase italic tracking-tighter text-2xl leading-none text-white">Mio Diario</h4>
+                                                <div className="p-6 border-b border-[#d4af37]/20 text-center bg-gradient-to-b from-black/20 to-transparent">
+                                                    <h4 className="philia-gold font-black uppercase italic tracking-tighter text-2xl leading-none text-white text-white">Mio Diario</h4>
                                                     <div className="mt-2 flex items-center justify-center gap-2">
                                                         <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span>
                                                         <p className="text-[10px] opacity-40 uppercase font-black tracking-widest text-white text-white text-white">{bookings.filter(b => b.barberName === adminUser && b.date === adminAgendaDate).length} APPUNTAMENTI</p>
@@ -784,21 +678,21 @@
                                             </div>
                                         </div>
                                         <section className="max-w-4xl mx-auto space-y-6 pt-10 border-t border-white/5 text-left text-white text-white text-white">
-                                            <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] text-white text-white">
-                                                <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none mb-4 text-white text-white text-white text-white">Mie Ferie e Eccezioni</h3>
-                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 text-white text-white">
+                                            <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] text-white">
+                                                <h3 className="philia-gold font-black uppercase italic text-xl border-l-4 border-[#d4af37] pl-4 leading-none mb-4 text-white text-white text-white">Mie Ferie e Eccezioni</h3>
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                                                     <ExceptionForm targetId={currentCollaborator?.id} isMasterMode={false} />
-                                                    <div className="max-h-[500px] overflow-y-auto space-y-3 no-scrollbar text-left text-white text-white text-white text-white">
-                                                        <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] mb-4 text-white text-white text-white text-white text-white">Le Mie Eccezioni</p>
+                                                    <div className="max-h-[500px] overflow-y-auto space-y-3 no-scrollbar text-left text-white text-white text-white">
+                                                        <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] mb-4 text-white text-white">Le Mie Eccezioni</p>
                                                         {currentCollaborator && currentCollaborator.dateOverrides && Object.entries(currentCollaborator.dateOverrides).sort().map(([date, h]) => (
-                                                            <div key={date} className="philia-bg p-4 rounded-2xl border border-white/10 flex justify-between items-center group text-white text-white">
+                                                            <div key={date} className="philia-bg p-4 rounded-2xl border border-white/10 flex justify-between items-center group text-white">
                                                                 <div>
-                                                                    <p className="font-black text-sm philia-gold text-white text-white text-white">{date}</p>
-                                                                    <p className="text-[9px] uppercase opacity-50 text-white text-white text-white text-white text-white">
+                                                                    <p className="font-black text-sm philia-gold text-white">{date}</p>
+                                                                    <p className="text-[9px] uppercase opacity-50 text-white">
                                                                         {h.open ? `${h.amActive ? 'AM OK' : 'AM OFF'} | ${h.pmActive ? 'PM OK' : 'PM OFF'}` : 'ASSENTE'}
                                                                     </p>
                                                                 </div>
-                                                                <button onClick={()=>removeDateOverride(currentCollaborator.id, date)} className="text-red-500 font-black px-2 hover:scale-125 transition-transform text-white text-white text-white">✕</button>
+                                                                <button onClick={()=>removeDateOverride(currentCollaborator.id, date)} className="text-red-500 font-black px-2 hover:scale-125 transition-transform text-white text-white">✕</button>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -811,18 +705,14 @@
                         )}
 
                         {view === 'my-bookings' && (
-                            <div className="fade-in max-w-xl mx-auto text-white text-white text-white">
+                            <div className="fade-in max-w-xl mx-auto text-white text-white">
                                 <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-center sm:text-left tracking-tighter leading-none text-white text-white">LA TUA AGENDA</h2>
                                 {bookings.filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '')).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).map(b => (
                                     <div key={b.id} className="philia-bg p-8 rounded-[40px] border border-white/5 mb-5 shadow-2xl flex justify-between items-center transition-all hover:scale-[1.02] text-left text-white text-white">
                                         <div className="flex-1 pr-4 text-white text-white">
                                             <p className="philia-gold font-black text-xs uppercase text-white text-white">{b.date}</p>
-                                            <h3 className="font-black text-2xl uppercase italic leading-tight my-1 text-white text-white text-white text-white">
-                                                {b.serviceName}
-                                            </h3>
-                                            <p className="text-white/40 text-[10px] uppercase font-bold text-white text-white text-white text-white">
-                                                Per: <span className="text-white font-black">{b.customerName}</span> • Con {b.barberName}
-                                            </p>
+                                            <h3 className="font-black text-2xl uppercase italic leading-tight my-1 text-white text-white">{b.serviceName}</h3>
+                                            <p className="text-white/40 text-[10px] uppercase font-bold text-white text-white">Per: <span className="text-white font-black">{b.customerName}</span> • Con {b.barberName}</p>
                                         </div>
                                         <div className="text-right">
                                             <p className="text-4xl font-black philia-gold italic leading-none text-white text-white">{b.time}</p>
@@ -838,29 +728,16 @@
                             <div className="fade-in max-w-xl mx-auto text-white text-white text-white">
                                 <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-white text-white text-white">IL TUO PROFILO</h2>
                                 <div className="philia-bg p-8 rounded-[40px] border border-white/10 shadow-2xl space-y-8">
-                                    <div className="space-y-2 text-white">
-                                        <label className="text-[10px] uppercase opacity-30 font-black tracking-[3px] ml-2 text-white text-white">Nome e Cognome (Modificabile per futuri tagli)</label>
-                                        <input 
-                                            type="text" 
-                                            value={clientName} 
-                                            onChange={(e) => setClientName(e.target.value)}
-                                            onBlur={saveIdentity}
-                                            className="w-full bg-black/40 border border-white/5 p-5 rounded-2xl text-xl font-bold text-white outline-none focus:border-[#d4af37] transition-all text-white text-white text-white"
-                                        />
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] uppercase opacity-30 font-black tracking-[3px] ml-2 text-white">Nome e Cognome (Modificabile per futuri tagli)</label>
+                                        <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} onBlur={saveIdentity} className="w-full bg-black/40 border border-white/5 p-5 rounded-2xl text-xl font-bold text-white outline-none focus:border-[#d4af37] transition-all text-white text-white" />
                                     </div>
-                                    <div className="space-y-2 text-white">
+                                    <div className="space-y-2 text-white text-white">
                                         <label className="text-[10px] uppercase opacity-30 font-black tracking-[3px] ml-2 text-white text-white">Numero di Cellulare</label>
-                                        <div className="w-full bg-black/20 p-5 rounded-2xl text-xl font-black text-[#d4af37] opacity-60 text-white text-white text-white">
-                                            {clientPhone}
-                                        </div>
+                                        <div className="w-full bg-black/20 p-5 rounded-2xl text-xl font-black text-[#d4af37] opacity-60 text-white text-white">{clientPhone}</div>
                                     </div>
-                                    <div className="pt-6 border-t border-white/5">
-                                        <button 
-                                            onClick={logout}
-                                            className="w-full bg-red-500/10 text-red-500 p-5 rounded-2xl font-black uppercase text-xs tracking-widest transition-all hover:bg-red-500 hover:text-white"
-                                        >
-                                            Cambia Utente / Logout
-                                        </button>
+                                    <div className="pt-6 border-t border-white/5 text-white">
+                                        <button onClick={logout} className="w-full bg-red-500/10 text-red-500 p-5 rounded-2xl font-black uppercase text-xs tracking-widest transition-all hover:bg-red-500 hover:text-white">Cambia Utente / Logout</button>
                                     </div>
                                 </div>
                                 <p className="mt-8 text-center text-[9px] opacity-20 uppercase font-bold leading-relaxed text-white text-white text-white">
@@ -870,10 +747,10 @@
                         )}
                     </div>
 
-                    <div className="fixed bottom-0 left-0 right-0 philia-bg border-t border-[#d4af37]/10 p-5 flex justify-around items-center max-w-xl mx-auto z-50 rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] text-white text-white text-white text-white text-white">
-                        <button onClick={()=>{setView('booking'); setStep(1);}} className={`flex flex-col items-center transition-all ${view === 'booking' ? 'philia-gold scale-125 shadow-[0_0_20px_rgba(212,175,55,0.2)] text-white text-white' : 'text-white/20'}`}><IconCalendar /><span className="text-[8px] font-black mt-1 uppercase tracking-widest text-white text-white text-white">PRENOTA</span></button>
-                        <button onClick={()=>setView('my-bookings')} className={`flex flex-col items-center transition-all ${view === 'my-bookings' ? 'philia-gold scale-125 shadow-[0_0_20px_rgba(212,175,55,0.2)]' : 'text-white/20'}`}><IconClock /><span className="text-[8px] font-black mt-1 uppercase tracking-widest text-center text-white text-white text-white">AGENDA</span></button>
-                        <button onClick={() => setView('profile')} className={`flex flex-col items-center transition-all ${view === 'profile' ? 'philia-gold scale-125 text-white text-white' : 'text-white/20 text-white'}`}><IconUser /><span className="text-[8px] font-black mt-1 uppercase tracking-widest text-white text-white text-white">PROFILO</span></button>
+                    <div className="fixed bottom-0 left-0 right-0 philia-bg border-t border-[#d4af37]/10 p-5 flex justify-around items-center max-w-xl mx-auto z-50 rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.5)] text-white text-white text-white">
+                        <button onClick={()=>{setView('booking'); setStep(1);}} className={`flex flex-col items-center transition-all ${view === 'booking' ? 'philia-gold scale-125 shadow-[0_0_20px_rgba(212,175,55,0.2)] text-white text-white' : 'text-white/20'}`}><IconCalendar /><span className="text-[8px] font-black mt-1 uppercase tracking-widest text-white text-white">PRENOTA</span></button>
+                        <button onClick={()=>setView('my-bookings')} className={`flex flex-col items-center transition-all ${view === 'my-bookings' ? 'philia-gold scale-125 shadow-[0_0_20px_rgba(212,175,55,0.2)]' : 'text-white/20'}`}><IconClock /><span className="text-[8px] font-black mt-1 uppercase tracking-widest text-center text-white text-white">AGENDA</span></button>
+                        <button onClick={() => setView('profile')} className={`flex flex-col items-center transition-all ${view === 'profile' ? 'philia-gold scale-125 text-white text-white' : 'text-white/20 text-white'}`}><IconUser /><span className="text-[8px] font-black mt-1 uppercase tracking-widest text-white text-white">PROFILO</span></button>
                     </div>
                 </div>
             );
