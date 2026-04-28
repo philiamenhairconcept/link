@@ -26,11 +26,6 @@
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* Stili Tabella Agenda */
-        .agenda-grid { display: grid; grid-template-columns: 60px repeat(auto-fill, minmax(120px, 1fr)); }
-        .time-col { border-right: 1px solid rgba(212, 175, 55, 0.1); }
-        .agenda-row { border-bottom: 1px solid rgba(255, 255, 255, 0.03); min-height: 60px; }
-        
         @media (min-width: 768px) {
             .app-container { max-width: 1200px; margin: 2rem auto; border-radius: 24px; border: 1px solid rgba(212, 175, 55, 0.2); min-height: 85vh; }
         }
@@ -86,7 +81,6 @@
             { id: 'rasatura_barba', name: 'Rasatura Barba', price: 5, duration: 15, desc: 'Rifinitura rapida e precisa della tua barba.' }
         ];
 
-        const DAYS_NAME = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
         const MONTHS_NAME = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
 
         function App() {
@@ -110,15 +104,18 @@
             const [tempStaffPwd, setTempStaffPwd] = useState("");
 
             const [calendarViewDate, setCalendarViewDate] = useState(new Date());
-
             const [selectedBarber, setSelectedBarber] = useState(null);
             const [selectedService, setSelectedService] = useState(null);
             const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('sv-SE'));
             const [selectedSlot, setSelectedSlot] = useState(null);
 
-            const [newExc, setNewExc] = useState({ date: '', open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true });
+            // Eccezioni di orario state
+            const [newExc, setNewExc] = useState({ 
+                date: '', open: false, 
+                am: ['09:00', '13:00'], pm: ['15:30', '20:30'], 
+                amActive: true, pmActive: true 
+            });
             const [editingService, setEditingService] = useState({ name: '', price: '', desc: '', duration: 30, firestoreId: null });
-
             const [expandedBooking, setExpandedBooking] = useState(null);
 
             const simoneBarber = useMemo(() => barbers.find(b => b.name.trim().toUpperCase() === 'SIMONE'), [barbers]);
@@ -127,7 +124,6 @@
                 return barbers.find(b => b.name.trim().toUpperCase() === adminUser.trim().toUpperCase());
             }, [barbers, adminUser]);
 
-            // --- GESTIONE NAVIGAZIONE (HISTORY API) ---
             const isPopStateNav = useRef(false);
 
             useEffect(() => {
@@ -237,18 +233,6 @@
                 return slots;
             };
 
-            const calendarDays = useMemo(() => {
-                const year = calendarViewDate.getFullYear();
-                const month = calendarViewDate.getMonth();
-                const firstDay = new Date(year, month, 1).getDay();
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
-                const days = [];
-                const startOffset = firstDay === 0 ? 6 : firstDay - 1;
-                for (let i = 0; i < startOffset; i++) days.push(null);
-                for (let d = 1; d <= daysInMonth; d++) days.push(new Date(year, month, d));
-                return days;
-            }, [calendarViewDate]);
-
             const changeMonth = (offset) => { const newDate = new Date(calendarViewDate); newDate.setMonth(newDate.getMonth() + offset); setCalendarViewDate(newDate); };
             const changeAgendaDate = (offset) => { const current = new Date(adminAgendaDate + 'T00:00:00'); current.setDate(current.getDate() + offset); setAdminAgendaDate(current.toLocaleDateString('sv-SE')); };
 
@@ -285,14 +269,14 @@
 
             const removeBarber = async (id, name) => { if (confirm(`Rimuovere ${name}?`)) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(id).delete(); };
 
-            // --- FIX CRASH AGGIUNTA ECCEZIONE ---
+            // --- FUNZIONE SALVATAGGIO ECCEZIONI (FIXATA) ---
             const addDateOverride = async (targetId, isGlobal = false) => {
                 if (!newExc.date) return alert("Scegli una data.");
                 
                 const payload = { 
                     open: newExc.open, 
-                    am: newExc.am, 
-                    pm: newExc.pm, 
+                    am: newExc.am || ['09:00', '13:00'], 
+                    pm: newExc.pm || ['15:30', '20:30'], 
                     amActive: newExc.amActive, 
                     pmActive: newExc.pmActive 
                 };
@@ -305,10 +289,13 @@
                         newOverrides[newExc.date] = payload;
                         await basePath.collection('config').doc('schedule').set({ dateOverrides: newOverrides }, { merge: true });
                     } else {
+                        // Se non è passato targetId, cerchiamo Simone
                         const bId = targetId || simoneBarber?.id;
                         const barber = barbers.find(x => x.id === bId);
-                        if (!barber) throw new Error("Barbiere non trovato");
-                        
+                        if (!barber) {
+                            alert("Errore: Impossibile trovare il profilo del barbiere.");
+                            return;
+                        }
                         const newOverrides = { ...(barber.dateOverrides || {}) };
                         newOverrides[newExc.date] = payload;
                         await basePath.collection('barbers').doc(barber.id).set({ dateOverrides: newOverrides }, { merge: true });
@@ -317,8 +304,8 @@
                     setNewExc({ date: '', open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true });
                     alert("Salvataggio completato! ✅");
                 } catch (e) {
-                    console.error("Errore salvataggio eccezione:", e);
-                    alert("Si è verificato un errore durante il salvataggio.");
+                    console.error("Errore salvataggio:", e);
+                    alert("Si è verificato un errore nel database.");
                 }
             };
 
@@ -336,6 +323,7 @@
                         delete newOverrides[dateKey];
                         await basePath.collection('barbers').doc(targetId).set({ dateOverrides: newOverrides }, { merge: true });
                     }
+                    alert("Eccezione rimossa.");
                 } catch (e) {
                     alert("Errore durante la rimozione.");
                 }
@@ -347,7 +335,7 @@
                 alert("Password Staff aggiornata!");
             };
 
-            // --- NUOVA VISTA UNIFICATA AGENDA (SIMONE) ---
+            // --- VISTA UNIFICATA AGENDA (SIMONE) ---
             const UnifiedAgenda = () => {
                 const dayTimes = useMemo(() => {
                     const times = [];
@@ -429,11 +417,11 @@
 
                                     <div className="space-y-4 mb-8">
                                         <div className="p-4 bg-black/20 rounded-2xl border border-white/5">
-                                            <p className="text-[10px] opacity-40 uppercase font-black mb-1">Servizio</p>
+                                            <p className="text-[10px] opacity-40 uppercase font-black mb-1 text-white/50">Servizio</p>
                                             <p className="font-bold text-white uppercase italic">{expandedBooking.serviceName}</p>
                                         </div>
                                         <div className="p-4 bg-black/20 rounded-2xl border border-white/5">
-                                            <p className="text-[10px] opacity-40 uppercase font-black mb-1">Telefono</p>
+                                            <p className="text-[10px] opacity-40 uppercase font-black mb-1 text-white/50">Telefono</p>
                                             <p className="font-bold text-white">{expandedBooking.customerPhone}</p>
                                         </div>
                                     </div>
@@ -503,13 +491,18 @@
                 </div>
             );
 
+            // --- COMPONENTE ECCEZIONI (CON DOPPIO PULSANTE FIXATO) ---
             const ExceptionForm = ({ targetId, isMasterMode = false }) => (
                 <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5">
                     <div className="space-y-1 text-left">
                         <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white">Scegli Data</label>
                         <input type="date" value={newExc.date} onChange={(e)=>setNewExc({...newExc, date: e.target.value})} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none" />
                     </div>
-                    <button type="button" onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`w-full p-4 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>{newExc.open ? 'Giorno Aperto (Imposta Orari)' : 'Giorno Chiuso (Ferie)'}</button>
+                    
+                    <button type="button" onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`w-full p-4 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>
+                        {newExc.open ? 'Giorno Aperto (Imposta Orari)' : 'Giorno Chiuso (Ferie)'}
+                    </button>
+                    
                     {newExc.open && (
                         <div className="space-y-6 pt-4 border-t border-white/5">
                             <div className="space-y-3">
@@ -534,7 +527,15 @@
                             </div>
                         </div>
                     )}
-                    <button type="button" onClick={()=>addDateOverride(targetId, isMasterMode)} className="w-full philia-btn p-4 rounded-xl font-black uppercase text-xs shadow-lg mt-4 text-[#332d2d]">Salva Eccezione</button>
+
+                    {isMasterMode ? (
+                        <div className="grid grid-cols-2 gap-3 mt-4">
+                            <button type="button" onClick={()=>addDateOverride(null, true)} className="philia-btn p-4 rounded-xl font-black uppercase text-[10px] shadow-lg text-[#332d2d]">Tutto Salone</button>
+                            <button type="button" onClick={()=>addDateOverride(targetId, false)} className="bg-white/10 p-4 rounded-xl font-black uppercase text-[10px] text-white">Solo Simone</button>
+                        </div>
+                    ) : (
+                        <button type="button" onClick={()=>addDateOverride(targetId, false)} className="w-full philia-btn p-4 rounded-xl font-black uppercase text-xs shadow-lg mt-4 text-[#332d2d]">Salva Eccezione</button>
+                    )}
                 </div>
             );
 
@@ -641,7 +642,7 @@
                                                         <span>{slot}</span>
                                                         <div className="flex items-center gap-2 opacity-60">
                                                             <span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span>
-                                                            <span className="text-[10px] uppercase font-black tracking-tighter">Disponibile</span>
+                                                            <span className="text-[10px] uppercase font-black tracking-tighter text-black">Disponibile</span>
                                                         </div>
                                                     </button>
                                                 ))}
@@ -656,7 +657,7 @@
                                         <div className="philia-bg p-8 rounded-[40px] border border-[#d4af37]/20 shadow-2xl text-white">
                                             <p className="font-black text-2xl philia-gold uppercase italic mb-8 leading-tight">{selectedService?.name}</p>
                                             <div className="bg-black/20 py-6 px-10 rounded-3xl border border-white/5 inline-block">
-                                                <p className="font-bold text-lg mb-1 tracking-tight">{selectedDate}</p>
+                                                <p className="font-bold text-lg mb-1 tracking-tight text-white">{selectedDate}</p>
                                                 <p className="philia-gold font-black text-4xl italic">{selectedSlot}</p>
                                             </div>
                                         </div>
@@ -699,6 +700,7 @@
                                 {adminUser === 'SIMONE' ? (
                                     <div className="space-y-12">
                                         {adminSubView === 'agenda' && <UnifiedAgenda />}
+                                        
                                         {adminSubView === 'catalogo' && (
                                             <div className="space-y-12 fade-in max-w-4xl mx-auto text-white">
                                                 <div className="p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px] space-y-6 text-center">
@@ -731,26 +733,45 @@
                                                 </div>
                                             </div>
                                         )}
+
                                         {adminSubView === 'gestione' && (
                                             <div className="space-y-12 fade-in text-white">
                                                 <section className="max-w-4xl mx-auto p-8 bg-[#d4af37]/5 border-2 border-dashed border-[#d4af37]/30 rounded-[40px]">
-                                                    <h3 className="philia-gold font-black uppercase italic mb-6 text-center">Eccezioni Calendario</h3>
+                                                    <h3 className="philia-gold font-black uppercase italic mb-6 text-center">Nuova Eccezione (Ferie/Orari)</h3>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left">
+                                                        {/* TargetId passato è quello di Simone per l'opzione "Solo Simone" */}
                                                         <ExceptionForm targetId={simoneBarber?.id} isMasterMode={true} />
-                                                        <div className="max-h-[500px] overflow-y-auto space-y-3 no-scrollbar text-left">
-                                                            <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] mb-4">Eccezioni Attive</p>
+                                                        
+                                                        <div className="max-h-[500px] overflow-y-auto space-y-4 no-scrollbar text-left">
+                                                            <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] mb-2">Eccezioni Attive</p>
+                                                            
+                                                            {/* Eccezioni Globali */}
                                                             {Object.entries(settings?.dateOverrides || {}).sort().map(([date, h]) => (
                                                                 <div key={date + "_global"} className="bg-[#d4af37]/10 p-4 rounded-2xl border border-[#d4af37]/30 flex justify-between items-center group">
                                                                     <div>
                                                                         <p className="font-black text-sm philia-gold">{date} (TUTTI)</p>
-                                                                        <p className="text-[9px] uppercase opacity-50 text-white">{h.open ? 'APERTO' : 'CHIUSO'}</p>
+                                                                        <p className="text-[9px] uppercase opacity-50 text-white">{h.open ? 'ORARIO SPECIFICO' : 'CHIUSO'}</p>
                                                                     </div>
-                                                                    <button type="button" onClick={()=>removeDateOverride(null, date, true)} className="text-red-500 font-black px-2 hover:scale-125 transition-transform text-white">✕</button>
+                                                                    <button type="button" onClick={()=>removeDateOverride(null, date, true)} className="text-red-500 font-black px-2 hover:scale-125 transition-transform text-white text-xl">✕</button>
                                                                 </div>
                                                             ))}
+
+                                                            {/* Eccezioni Individuali */}
+                                                            {barbers.map(barber => 
+                                                                Object.entries(barber.dateOverrides || {}).sort().map(([date, h]) => (
+                                                                    <div key={date + "_" + barber.id} className="philia-bg p-4 rounded-2xl border border-white/10 flex justify-between items-center group">
+                                                                        <div>
+                                                                            <p className="font-black text-sm text-[#d4af37]">{date} ({barber.name})</p>
+                                                                            <p className="text-[9px] uppercase opacity-50 text-white">{h.open ? 'ORARIO SPECIFICO' : 'ASSENTE'}</p>
+                                                                        </div>
+                                                                        <button type="button" onClick={()=>removeDateOverride(barber.id, date)} className="text-red-500 font-black px-2 hover:scale-125 transition-transform text-white text-xl">✕</button>
+                                                                    </div>
+                                                                ))
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </section>
+
                                                 <section className="max-w-5xl mx-auto space-y-6 text-left">
                                                     <div className="flex justify-between items-center border-l-4 border-[#d4af37] pl-4">
                                                         <h3 className="philia-gold font-black uppercase italic text-xl leading-none">Team e Competenze</h3>
@@ -783,7 +804,7 @@
                                     <div className="space-y-12 text-white">
                                         <AgendaDateNavAdmin />
                                         <div className="max-w-xl mx-auto">
-                                            <div className="philia-bg rounded-[40px] border border-white/5 flex flex-col min-h-[500px] shadow-2xl overflow-hidden text-center">
+                                            <div className="philia-bg rounded-[40px] border border-white/5 flex flex-col min-h-[500px] shadow-2xl overflow-hidden text-center text-white">
                                                 <div className="p-6 border-b border-[#d4af37]/20 bg-gradient-to-b from-black/20 to-transparent">
                                                     <h4 className="philia-gold font-black uppercase italic tracking-tighter text-2xl leading-none">Mio Diario</h4>
                                                     <p className="text-[10px] opacity-40 uppercase font-black tracking-widest mt-2">{bookings.filter(b => b.barberName === adminUser && b.date === adminAgendaDate).length} APPUNTAMENTI</p>
@@ -820,7 +841,7 @@
 
                         {view === 'profile' && (
                             <div className="fade-in max-w-xl mx-auto text-white">
-                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest">IL TUO PROFILO</h2>
+                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-white">IL TUO PROFILO</h2>
                                 <div className="philia-bg p-8 rounded-[40px] border border-white/10 shadow-2xl space-y-8">
                                     <div className="space-y-2">
                                         <label className="text-[10px] uppercase opacity-30 font-black tracking-[3px] ml-2">Nome e Cognome</label>
