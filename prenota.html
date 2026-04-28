@@ -126,18 +126,22 @@
                 return barbers.find(b => b.name.trim().toUpperCase() === adminUser.trim().toUpperCase());
             }, [barbers, adminUser]);
 
-            // --- GESTIONE TASTO INDIETRO (HISTORY API) ---
+            // --- GESTIONE NAVIGAZIONE (HISTORY API) ---
+            const isPopStateNav = useRef(false);
+
             useEffect(() => {
-                // Sostituisce lo stato iniziale appena caricata l'app
+                // Impostiamo lo stato iniziale nella history
                 window.history.replaceState({ view, step, adminUser, adminSubView }, "");
 
                 const handlePopState = (event) => {
                     if (event.state) {
-                        // Sincronizza lo stato di React con quello della cronologia del browser
+                        isPopStateNav.current = true;
                         setView(event.state.view);
                         setStep(event.state.step);
                         setAdminUser(event.state.adminUser);
                         setAdminSubView(event.state.adminSubView);
+                        // Reset flag dopo il ciclo di render
+                        setTimeout(() => isPopStateNav.current = false, 50);
                     }
                 };
 
@@ -145,11 +149,12 @@
                 return () => window.removeEventListener('popstate', handlePopState);
             }, []);
 
-            // Ogni volta che view o step cambiano via codice (click utente), aggiunge una voce alla history
+            // Registra ogni cambio di stato nella history (se non causato dal tasto indietro)
             useEffect(() => {
-                const currentState = window.history.state;
-                if (currentState) {
-                    const hasChanged = currentState.view !== view || 
+                if (!isPopStateNav.current && isIdentified) {
+                    const currentState = window.history.state;
+                    const hasChanged = !currentState || 
+                                     currentState.view !== view || 
                                      currentState.step !== step || 
                                      currentState.adminUser !== adminUser || 
                                      currentState.adminSubView !== adminSubView;
@@ -158,7 +163,7 @@
                         window.history.pushState({ view, step, adminUser, adminSubView }, "");
                     }
                 }
-            }, [view, step, adminUser, adminSubView]);
+            }, [view, step, adminUser, adminSubView, isIdentified]);
 
             useEffect(() => {
                 auth.onAuthStateChanged(async (u) => {
@@ -518,7 +523,7 @@
                                 )}
                                 {step === 2 && (
                                     <div className="fade-in">
-                                        <button onClick={()=>setStep(1)} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest text-white">← Indietro</button>
+                                        <button onClick={() => window.history.back()} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest text-white">← Indietro</button>
                                         <h2 className="text-xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 uppercase italic leading-tight text-left text-white">Servizi di {selectedBarber.name}</h2>
                                         <div className="grid gap-3">
                                             {services.filter(s => (selectedBarber.skills || []).includes(s.firestoreId)).map(s => (
@@ -538,7 +543,7 @@
                                 )}
                                 {step === 3 && (
                                     <div className="fade-in text-white text-white">
-                                        <button onClick={()=>setStep(2)} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest text-white text-white">← Indietro</button>
+                                        <button onClick={() => window.history.back()} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest text-white text-white">← Indietro</button>
                                         
                                         <div className="bg-[#332d2d] rounded-[30px] p-6 mb-8 border border-white/10 shadow-2xl text-white">
                                             <div className="flex justify-between items-center mb-6 text-white">
@@ -606,7 +611,7 @@
                                 )}
                                 {step === 4 && (
                                     <div className="fade-in space-y-6 text-center text-white">
-                                        <button onClick={()=>setStep(3)} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest text-white text-white">← Indietro</button>
+                                        <button onClick={() => window.history.back()} className="philia-gold text-[10px] font-black mb-6 uppercase tracking-widest text-white text-white">← Indietro</button>
                                         <div className="philia-bg p-8 rounded-[40px] border border-[#d4af37]/20 shadow-2xl text-center text-white text-white">
                                             <p className="font-black text-2xl philia-gold uppercase italic mb-8 leading-tight text-white">{selectedService.name}</p>
                                             <div className="bg-black/20 py-6 px-10 rounded-3xl border border-white/5 inline-block text-white text-white">
@@ -628,7 +633,7 @@
                                     {barbers.filter(b => b.name.trim().toUpperCase() !== 'SIMONE').map(b => (
                                         <button key={b.id} onClick={()=>{setAdminUser(b.name); setView('admin'); setAdminSubView('agenda');}} className="w-full philia-bg p-6 rounded-3xl font-black text-xl italic border border-white/10 hover:border-[#d4af37] transition-all text-center uppercase text-white text-white text-white">{b.name}</button>
                                     ))}
-                                    <button onClick={()=>setView('booking')} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest">Torna al Salone</button>
+                                    <button onClick={() => window.history.back()} className="mt-10 text-white/20 uppercase font-black text-[10px] tracking-widest">Torna al Salone</button>
                                 </div>
                             </div>
                         )}
@@ -647,7 +652,7 @@
                                     <h2 className="text-2xl font-black italic uppercase leading-none tracking-tighter philia-gold text-white text-white">
                                         {adminUser === 'SIMONE' ? (adminSubView === 'agenda' ? 'AGENDONE TEAM' : (adminSubView === 'gestione' ? 'SETTAGGI SALONE' : 'LISTINO SERVIZI')) : `AGENDA ${adminUser}`}
                                     </h2>
-                                    <button onClick={()=>{setAdminUser(null); setView('booking');}} className="philia-gold text-xs font-bold uppercase border border-[#d4af37]/30 px-6 py-3 rounded-full hover:bg-[#d4af37] hover:text-black text-white text-white">Logout</button>
+                                    <button onClick={() => window.history.back()} className="philia-gold text-xs font-bold uppercase border border-[#d4af37]/30 px-6 py-3 rounded-full hover:bg-[#d4af37] hover:text-black text-white text-white">Indietro</button>
                                 </div>
                                 
                                 {adminUser === 'SIMONE' ? (
