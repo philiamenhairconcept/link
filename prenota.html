@@ -382,7 +382,7 @@
                                                         // Troviamo se c'è un booking che inizia esattamente in questo slot di 15 min
                                                         const bnk = bookings.find(b => b.barberId === barber.id && b.date === adminAgendaDate && b.time === time);
                                                         
-                                                        if (!bnk) return <div key={barber.id} className="border-l border-white/5"></div>;
+                                                        if (!bnk) return <div key={barber.id} className="border-l border-white/5 h-[30px]"></div>;
 
                                                         // Se c'è un booking, calcoliamo quante righe da 15min deve occupare
                                                         const spanRows = Math.max(1, Math.ceil((bnk.duration || 30) / 15));
@@ -391,22 +391,27 @@
                                                         return (
                                                             <div 
                                                                 key={barber.id} 
-                                                                className="border-l border-white/5 relative"
-                                                                style={{ gridRow: `span ${spanRows}` }}
+                                                                className="border-l border-white/5 relative h-[30px]"
                                                             >
-                                                                <button 
-                                                                    type="button"
-                                                                    onClick={() => setExpandedBooking(bnk)}
-                                                                    className="absolute inset-0.5 rounded-lg flex items-center justify-center shadow-lg transform hover:brightness-110 transition-all border border-white/10 overflow-hidden"
-                                                                    style={{ backgroundColor: barberColor }}
+                                                                {/* Il div dell'appuntamento è posizionato in modo assoluto per "riempire" le celle successive */}
+                                                                <div 
+                                                                    className="absolute inset-x-0.5 top-0.5 z-20"
+                                                                    style={{ height: `${(spanRows * 30) - 4}px` }}
                                                                 >
-                                                                    <div className="bg-black/20 w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] text-white border border-white/20">
-                                                                        {getInitials(bnk.customerName)}
-                                                                    </div>
-                                                                    <span className="ml-2 text-[9px] font-black uppercase tracking-tighter text-black/60 hidden sm:block truncate px-1">
-                                                                        {bnk.customerName}
-                                                                    </span>
-                                                                </button>
+                                                                    <button 
+                                                                        type="button"
+                                                                        onClick={() => setExpandedBooking(bnk)}
+                                                                        className="w-full h-full rounded-lg flex items-center justify-center shadow-lg transform hover:brightness-110 transition-all border border-white/10 overflow-hidden"
+                                                                        style={{ backgroundColor: barberColor }}
+                                                                    >
+                                                                        <div className="bg-black/20 w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] text-white border border-white/20">
+                                                                            {getInitials(bnk.customerName)}
+                                                                        </div>
+                                                                        <span className="ml-2 text-[9px] font-black uppercase tracking-tighter text-black/60 hidden sm:block truncate px-1">
+                                                                            {bnk.customerName}
+                                                                        </span>
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         );
                                                     })}
