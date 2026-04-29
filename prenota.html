@@ -375,7 +375,7 @@
                                     {dayTimes.map((time, timeIdx) => {
                                         const isMainSlot = time.endsWith(':00') || time.endsWith(':30');
                                         return (
-                                            <div key={time} className={`grid grid-cols-[80px_1fr] border-b border-white/5 min-h-[30px] ${!isMainSlot ? 'opacity-10' : ''}`}>
+                                            <div key={time} className="grid grid-cols-[80px_1fr] border-b border-white/5 min-h-[30px]">
                                                 <div className="flex items-center justify-center text-[10px] font-bold opacity-30">
                                                     {isMainSlot ? time : ''}
                                                 </div>
