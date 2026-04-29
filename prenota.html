@@ -841,6 +841,29 @@
                                                     {bookings.filter(b => b.barberName === adminUser && b.date === adminAgendaDate).sort((a, b) => a.time.localeCompare(b.time)).map(b => <AppointmentCard key={b.id} b={b} />)}
                                                 </div>
                                             </div>
+
+                                            {/* Gestione Eccezioni Personale per Collaboratori */}
+                                            <div className="mt-12 space-y-8">
+                                                <div className="border-l-4 border-[#d4af37] pl-4 text-left">
+                                                    <h3 className="philia-gold font-black uppercase italic text-xl">Le mie Eccezioni</h3>
+                                                    <p className="text-[10px] opacity-40 uppercase font-black">Gestisci i tuoi orari o giorni di assenza</p>
+                                                </div>
+                                                
+                                                <ExceptionForm targetId={currentCollaborator?.id} isMasterMode={false} />
+
+                                                <div className="space-y-4 text-left">
+                                                    <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] ml-2">Eccezioni Attive</p>
+                                                    {currentCollaborator && Object.entries(currentCollaborator.dateOverrides || {}).sort().map(([date, h]) => (
+                                                        <div key={date + "_" + currentCollaborator.id} className="philia-bg p-4 rounded-2xl border border-white/10 flex justify-between items-center">
+                                                            <div>
+                                                                <p className="font-black text-sm text-[#d4af37]">{date}</p>
+                                                                <p className="text-[9px] uppercase opacity-50">{h.open ? 'ORARIO SPECIFICO' : 'ASSENTE'}</p>
+                                                            </div>
+                                                            <button type="button" onClick={()=>removeDateOverride(currentCollaborator.id, date)} className="text-red-500 font-black px-2 text-xl">✕</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
