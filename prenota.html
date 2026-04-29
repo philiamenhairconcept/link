@@ -135,6 +135,9 @@
             const [editingService, setEditingService] = useState({ name: '', price: '', desc: '', duration: 30, firestoreId: null });
             const [expandedBooking, setExpandedBooking] = useState(null);
 
+            // Stato extra per il dettaglio prenotazione cliente
+            const [clientSelectedBooking, setClientSelectedBooking] = useState(null);
+
             const simoneBarber = useMemo(() => barbers.find(b => b.name.trim().toUpperCase() === 'SIMONE'), [barbers]);
             const currentCollaborator = useMemo(() => {
                 if (!adminUser) return null;
@@ -893,20 +896,100 @@
                         {view === 'my-bookings' && (
                             <div className="fade-in max-w-xl mx-auto text-white">
                                 <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-center sm:text-left text-white">LA TUA AGENDA</h2>
-                                {bookings.filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '')).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).map(b => (
-                                    <div key={b.id} className="philia-bg p-8 rounded-[40px] border border-white/5 mb-5 shadow-2xl flex justify-between items-center transition-all hover:scale-[1.02] text-left">
-                                        <div className="flex-1 pr-4">
-                                            <p className="philia-gold font-black text-xs uppercase">{b.date}</p>
-                                            <h3 className="font-black text-2xl uppercase italic my-1">{b.serviceName}</h3>
-                                            <p className="text-white/40 text-[10px] uppercase font-bold">Per: <span className="text-white font-black">{b.customerName}</span> • Con {b.barberName}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-4xl font-black philia-gold italic leading-none">{b.time}</p>
-                                            <button type="button" onClick={async ()=>{if(confirm("Annullare?")) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete();}} className="text-red-500/30 text-[9px] font-black uppercase mt-2 block w-full text-right underline italic">Annulla</button>
+                                
+                                <div className="bg-[#332d2d] rounded-[30px] p-6 mb-8 border border-white/10 shadow-2xl text-white">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-xl font-black philia-gold uppercase italic">{MONTHS_NAME[calendarViewDate.getMonth()]} {calendarViewDate.getFullYear()}</h3>
+                                        <div className="flex gap-2">
+                                            <button type="button" onClick={() => changeMonth(-1)} className="w-10 h-10 flex items-center justify-center bg-black/20 rounded-full">←</button>
+                                            <button type="button" onClick={() => changeMonth(1)} className="w-10 h-10 flex items-center justify-center bg-black/20 rounded-full">→</button>
                                         </div>
                                     </div>
-                                ))}
-                                {bookings.filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '')).length === 0 && <p className="opacity-10 text-center py-20 uppercase font-black italic text-sm tracking-[4px]">Ancora nessun taglio</p>}
+                                    <div className="grid grid-cols-7 gap-1 mb-2 text-center text-white/30 text-[10px] font-black uppercase">
+                                        {["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"].map(d => <div key={d}>{d}</div>)}
+                                    </div>
+                                    <div className="grid grid-cols-7 gap-2">
+                                        {calendarDays.map((day, idx) => {
+                                            if (!day) return <div key={idx} className="h-12"></div>;
+                                            const dateStr = day.toLocaleDateString('sv-SE');
+                                            const today = new Date();
+                                            today.setHours(0,0,0,0);
+                                            
+                                            // Cerchiamo le prenotazioni del cliente per questo giorno
+                                            const dayBookings = bookings.filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '') && b.date === dateStr);
+                                            const hasBooking = dayBookings.length > 0;
+                                            const isPast = day < today;
+
+                                            return (
+                                                <button 
+                                                    key={idx} 
+                                                    type="button" 
+                                                    onClick={() => hasBooking && setClientSelectedBooking(dayBookings[0])}
+                                                    className={`h-12 w-full rounded-xl flex items-center justify-center font-black text-sm transition-all relative
+                                                        ${hasBooking ? (isPast ? 'bg-white/10 border-2 border-white/20 text-white/50' : 'bg-green-600 border-2 border-green-400 text-white shadow-[0_0_15px_rgba(22,163,74,0.5)] scale-110 z-10') : 'hover:bg-white/5 text-white/40'}
+                                                    `}
+                                                >
+                                                    {day.getDate()}
+                                                    {day.toLocaleDateString('sv-SE') === new Date().toLocaleDateString('sv-SE') && !hasBooking && (
+                                                        <div className="absolute bottom-1.5 w-1 h-1 bg-[#d4af37] rounded-full"></div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Sezione riepilogo rapido se non c'è nulla di selezionato */}
+                                {!clientSelectedBooking && (
+                                    <p className="opacity-20 text-center py-10 uppercase font-black italic text-xs tracking-[4px]">Tocca un giorno colorato per i dettagli</p>
+                                )}
+
+                                {/* Pannello Dettaglio Prenotazione Cliente */}
+                                {clientSelectedBooking && (
+                                    <div className="fade-in philia-bg p-8 rounded-[40px] border border-white/10 shadow-2xl relative text-left">
+                                        <button onClick={() => setClientSelectedBooking(null)} className="absolute top-6 right-6 text-white/30 hover:text-white">✕</button>
+                                        <p className={`font-black text-xs uppercase mb-1 ${new Date(clientSelectedBooking.date) < new Date(new Date().setHours(0,0,0,0)) ? 'text-white/40' : 'text-green-500'}`}>
+                                            {new Date(clientSelectedBooking.date) < new Date(new Date().setHours(0,0,0,0)) ? 'Prenotazione Passata' : 'Prossimo Appuntamento'}
+                                        </p>
+                                        <h3 className="font-black text-3xl philia-gold uppercase italic mb-4">{clientSelectedBooking.serviceName}</h3>
+                                        
+                                        <div className="grid grid-cols-2 gap-4 mb-6">
+                                            <div className="p-4 bg-black/20 rounded-2xl border border-white/5">
+                                                <p className="text-[9px] opacity-40 uppercase font-black mb-1">Data</p>
+                                                <p className="font-bold text-white text-sm">{clientSelectedBooking.date}</p>
+                                            </div>
+                                            <div className="p-4 bg-black/20 rounded-2xl border border-white/5">
+                                                <p className="text-[9px] opacity-40 uppercase font-black mb-1">Orario</p>
+                                                <p className="font-black philia-gold text-xl italic">{clientSelectedBooking.time}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-5 bg-white/5 rounded-3xl border border-white/10 mb-8 flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[9px] opacity-40 uppercase font-black mb-1">Barbiere</p>
+                                                <p className="font-black text-white uppercase italic">{clientSelectedBooking.barberName}</p>
+                                            </div>
+                                            <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-xs" style={{ backgroundColor: barbers.find(b => b.id === clientSelectedBooking.barberId)?.color || '#d4af37', color: '#1a1a1a' }}>
+                                                {clientSelectedBooking.barberName.substring(0,2).toUpperCase()}
+                                            </div>
+                                        </div>
+
+                                        {new Date(clientSelectedBooking.date) >= new Date(new Date().setHours(0,0,0,0)) && (
+                                            <button 
+                                                type="button" 
+                                                onClick={async () => {
+                                                    if(confirm("Vuoi davvero annullare questo appuntamento?")) {
+                                                        await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(clientSelectedBooking.id).delete();
+                                                        setClientSelectedBooking(null);
+                                                    }
+                                                }} 
+                                                className="w-full py-4 text-[10px] font-black uppercase text-red-500 border border-red-500/20 rounded-2xl hover:bg-red-500/5 transition-all"
+                                            >
+                                                Annulla Prenotazione
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
 
