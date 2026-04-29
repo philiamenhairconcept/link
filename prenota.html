@@ -316,17 +316,15 @@
                 try {
                     const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
                     if (isGlobal) {
-                        const newOverrides = { ...(settings?.dateOverrides || {}) };
-                        delete newOverrides[dateKey];
-                        await basePath.collection('config').doc('schedule').set({ dateOverrides: newOverrides }, { merge: true });
+                        await basePath.collection('config').doc('schedule').update({
+                            [`dateOverrides.${dateKey}`]: firebase.firestore.FieldValue.delete()
+                        });
                     } else {
-                        const barber = barbers.find(b => b.id === targetId);
-                        if (!barber) return;
-                        const newOverrides = { ...(barber.dateOverrides || {}) };
-                        delete newOverrides[dateKey];
-                        await basePath.collection('barbers').doc(targetId).set({ dateOverrides: newOverrides }, { merge: true });
+                        await basePath.collection('barbers').doc(targetId).update({
+                            [`dateOverrides.${dateKey}`]: firebase.firestore.FieldValue.delete()
+                        });
                     }
-                } catch (e) { alert("Errore."); }
+                } catch (e) { alert("Errore nella cancellazione."); }
             };
 
             // --- VISTA UNIFICATA AGENDA (REINVENTATA PER DURATE VARIABILI) ---
