@@ -136,8 +136,8 @@
             const [editingService, setEditingService] = useState({ name: '', price: '', desc: '', duration: 30, firestoreId: null });
             const [expandedBooking, setExpandedBooking] = useState(null);
 
-            // Stato extra per i dettagli prenotazioni del cliente per il giorno selezionato
-            const [clientSelectedBookings, setClientSelectedBookings] = useState(null);
+            // Stato extra per il giorno selezionato dal cliente nell'agenda
+            const [clientSelectedDate, setClientSelectedDate] = useState(null);
 
             const simoneBarber = useMemo(() => barbers.find(b => b.name.trim().toUpperCase() === 'SIMONE'), [barbers]);
             const currentCollaborator = useMemo(() => {
@@ -578,8 +578,8 @@
                                     <button type="button" onClick={()=>setNewExc({...newExc, pmActive: !newExc.pmActive})} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${newExc.pmActive ? 'bg-[#d4af37] text-[#332d2d]' : 'bg-white/5 text-white/20'}`}>{newExc.pmActive ? 'ON' : 'OFF'}</button>
                                 </div>
                                 <div className={`grid grid-cols-2 gap-3 ${newExc.pmActive ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
-                                    <input type="time" value={newExc.pm[0]} onChange={(e)=>setNewExc({...newExc, pm:[e.target.value, newExc.pm[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
-                                    <input type="time" value={newExc.pm[1]} onChange={(e)=>setNewExc({...newExc, pm:[newExc.pm[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
+                                    <input type="time" value={h.pm[0]} onChange={(e)=>setNewExc({...newExc, pm:[e.target.value, newExc.pm[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
+                                    <input type="time" value={h.pm[1]} onChange={(e)=>setNewExc({...newExc, pm:[newExc.pm[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
                                 </div>
                             </div>
                         </div>
@@ -1000,11 +1000,9 @@
                                             const now = new Date();
                                             const currentMin = now.getHours() * 60 + now.getMinutes();
                                             
-                                            // Cerchiamo tutte le prenotazioni del cliente per questo giorno
                                             const dayBookings = bookings.filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '') && b.date === dateStr);
                                             const hasBooking = dayBookings.length > 0;
                                             
-                                            // Il giorno resta verde se c'è almeno un appuntamento la cui fine è nel futuro
                                             const hasActiveFuture = dayBookings.some(b => {
                                                 const endMin = timeToMinutes(b.time) + (b.duration || 30);
                                                 return (b.date > todayStr) || (b.date === todayStr && endMin > currentMin);
@@ -1014,7 +1012,7 @@
                                                 <button 
                                                     key={idx} 
                                                     type="button" 
-                                                    onClick={() => hasBooking && setClientSelectedBookings(dayBookings)}
+                                                    onClick={() => hasBooking && setClientSelectedDate(dateStr)}
                                                     className={`h-12 w-full rounded-xl flex items-center justify-center font-black text-sm transition-all relative
                                                         ${hasBooking ? (hasActiveFuture ? 'bg-green-600 border-2 border-green-400 text-white shadow-[0_0_15px_rgba(22,163,74,0.5)] scale-110 z-10' : 'bg-white/10 border-2 border-white/20 text-white/50') : 'hover:bg-white/5 text-white/40'}
                                                     `}
@@ -1029,66 +1027,68 @@
                                     </div>
                                 </div>
 
-                                {/* Sezione riepilogo rapido se non c'è nulla di selezionato */}
-                                {!clientSelectedBookings && (
+                                {!clientSelectedDate && (
                                     <p className="opacity-20 text-center py-10 uppercase font-black italic text-xs tracking-[4px]">Tocca un giorno colorato per i dettagli</p>
                                 )}
 
-                                {/* Pannello Dettaglio Prenotazioni Cliente (ora gestisce una lista di appuntamenti) */}
-                                {clientSelectedBookings && (
+                                {clientSelectedDate && (
                                     <div className="fade-in philia-bg p-8 rounded-[40px] border border-white/10 shadow-2xl relative text-left">
-                                        <button onClick={() => setClientSelectedBookings(null)} className="absolute top-6 right-6 text-white/30 hover:text-white">✕</button>
-                                        <h3 className="philia-gold font-black uppercase text-center mb-6 tracking-widest">Dettagli del {clientSelectedBookings[0].date}</h3>
+                                        <button onClick={() => setClientSelectedDate(null)} className="absolute top-6 right-6 text-white/30 hover:text-white">✕</button>
+                                        <h3 className="philia-gold font-black uppercase text-center mb-6 tracking-widest">Dettagli del {clientSelectedDate}</h3>
                                         
                                         <div className="space-y-6">
-                                            {clientSelectedBookings.map((b) => {
-                                                const todayStr = new Date().toLocaleDateString('sv-SE');
-                                                const now = new Date();
-                                                const curMin = now.getHours() * 60 + now.getMinutes();
-                                                const endMin = timeToMinutes(b.time) + (b.duration || 30);
-                                                const isCompleted = (b.date < todayStr) || (b.date === todayStr && endMin <= curMin);
+                                            {bookings
+                                                .filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '') && b.date === clientSelectedDate)
+                                                .map((b) => {
+                                                    const todayStr = new Date().toLocaleDateString('sv-SE');
+                                                    const now = new Date();
+                                                    const curMin = now.getHours() * 60 + now.getMinutes();
+                                                    const endMin = timeToMinutes(b.time) + (b.duration || 30);
+                                                    const isCompleted = (b.date < todayStr) || (b.date === todayStr && endMin <= curMin);
 
-                                                return (
-                                                    <div key={b.id} className="p-6 bg-white/5 rounded-3xl border border-white/10 relative">
-                                                        <p className={`font-black text-[10px] uppercase mb-1 ${isCompleted ? 'text-white/40' : 'text-green-500'}`}>
-                                                            {isCompleted ? 'Concluso' : 'Da Effettuare'}
-                                                        </p>
-                                                        <h3 className="font-black text-2xl text-white uppercase italic leading-tight">{b.serviceName}</h3>
-                                                        <p className="text-[10px] text-white/60 font-bold uppercase mt-1 mb-4 italic">Prenotato per: <span className="text-white font-black">{b.customerName}</span></p>
-                                                        
-                                                        <div className="grid grid-cols-2 gap-3 mb-4">
-                                                            <div className="p-3 bg-black/20 rounded-2xl border border-white/5">
-                                                                <p className="text-[8px] opacity-40 uppercase font-black mb-1">Orario</p>
-                                                                <p className="font-black philia-gold text-lg italic">{b.time}</p>
-                                                            </div>
-                                                            <div className="p-3 bg-black/20 rounded-2xl border border-white/5 flex items-center justify-between">
-                                                                <div>
-                                                                    <p className="text-[8px] opacity-40 uppercase font-black mb-1">Barbiere</p>
-                                                                    <p className="font-bold text-white text-xs uppercase italic">{b.barberName}</p>
+                                                    return (
+                                                        <div key={b.id} className="p-6 bg-white/5 rounded-3xl border border-white/10 relative">
+                                                            <p className={`font-black text-[10px] uppercase mb-1 ${isCompleted ? 'text-white/40' : 'text-green-500'}`}>
+                                                                {isCompleted ? 'Concluso' : 'Da Effettuare'}
+                                                            </p>
+                                                            <h3 className="font-black text-2xl text-white uppercase italic leading-tight">{b.serviceName}</h3>
+                                                            <p className="text-[10px] text-white/60 font-bold uppercase mt-1 mb-4 italic">Prenotato per: <span className="text-white font-black">{b.customerName}</span></p>
+                                                            
+                                                            <div className="grid grid-cols-2 gap-3 mb-4">
+                                                                <div className="p-3 bg-black/20 rounded-2xl border border-white/5">
+                                                                    <p className="text-[8px] opacity-40 uppercase font-black mb-1">Orario</p>
+                                                                    <p className="font-black philia-gold text-lg italic">{b.time}</p>
                                                                 </div>
-                                                                <div className="w-6 h-6 rounded-full flex items-center justify-center font-black text-[8px] border border-white/20" style={{ backgroundColor: barbers.find(x => x.id === b.barberId)?.color || '#d4af37', color: '#1a1a1a' }}>
-                                                                    {b.barberName.substring(0,2).toUpperCase()}
+                                                                <div className="p-3 bg-black/20 rounded-2xl border border-white/5 flex items-center justify-between">
+                                                                    <div>
+                                                                        <p className="text-[8px] opacity-40 uppercase font-black mb-1">Barbiere</p>
+                                                                        <p className="font-bold text-white text-xs uppercase italic">{b.barberName}</p>
+                                                                    </div>
+                                                                    <div className="w-6 h-6 rounded-full flex items-center justify-center font-black text-[8px] border border-white/20" style={{ backgroundColor: barbers.find(x => x.id === b.barberId)?.color || '#d4af37', color: '#1a1a1a' }}>
+                                                                        {b.barberName.substring(0,2).toUpperCase()}
+                                                                    </div>
                                                                 </div>
                                                             </div>
+
+                                                            {!isCompleted && (
+                                                                <button 
+                                                                    type="button" 
+                                                                    onClick={async () => {
+                                                                        if(confirm("Vuoi davvero annullare questo appuntamento?")) {
+                                                                            await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete();
+                                                                        }
+                                                                    }} 
+                                                                    className="w-full py-3 text-[9px] font-black uppercase text-red-500/50 border border-red-500/20 rounded-xl hover:bg-red-500/5 hover:text-red-500 transition-all"
+                                                                >
+                                                                    Annulla questo Appuntamento
+                                                                </button>
+                                                            )}
                                                         </div>
-
-                                                        {!isCompleted && (
-                                                            <button 
-                                                                type="button" 
-                                                                onClick={async () => {
-                                                                    if(confirm("Vuoi davvero annullare questo appuntamento?")) {
-                                                                        await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete();
-                                                                        setClientSelectedBookings(null);
-                                                                    }
-                                                                }} 
-                                                                className="w-full py-3 text-[9px] font-black uppercase text-red-500/50 border border-red-500/20 rounded-xl hover:bg-red-500/5 hover:text-red-500 transition-all"
-                                                            >
-                                                                Annulla questo Appuntamento
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
+                                                    );
+                                                })}
+                                            {bookings.filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '') && b.date === clientSelectedDate).length === 0 && (
+                                                <p className="text-center opacity-40 text-xs italic py-4">Nessun appuntamento trovato per oggi.</p>
+                                            )}
                                         </div>
                                     </div>
                                 )}
