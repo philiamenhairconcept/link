@@ -129,6 +129,11 @@
 
             const [clientSelectedDate, setClientSelectedDate] = useState(null);
 
+            // --- FIX: DEFINIZIONE STATI MANCANTI PER AREA STAFF ---
+            const [editingService, setEditingService] = useState({ name: '', price: '', desc: '', duration: 30, firestoreId: null });
+            const [newExc, setNewExc] = useState({ date: '', open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true });
+            const [expandedBooking, setExpandedBooking] = useState(null);
+
             const simoneBarber = useMemo(() => barbers.find(b => b.name.trim().toUpperCase() === 'SIMONE'), [barbers]);
             const currentCollaborator = useMemo(() => {
                 if (!adminUser) return null;
