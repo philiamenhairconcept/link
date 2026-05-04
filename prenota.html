@@ -99,7 +99,7 @@
         ];
 
         const WEEKDAYS_NAME = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
-        const MONTHS_NAME = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Octobre", "Novembre", "Dicembre"];
+        const MONTHS_NAME = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
 
         function App() {
             const [clientPhone, setClientPhone] = useState(localStorage.getItem('philia_phone') || "");
@@ -127,16 +127,6 @@
             const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('sv-SE'));
             const [selectedSlot, setSelectedSlot] = useState(null);
 
-            // Eccezioni di orario state
-            const [newExc, setNewExc] = useState({ 
-                date: '', open: false, 
-                am: ['09:00', '13:00'], pm: ['15:30', '20:30'], 
-                amActive: true, pmActive: true 
-            });
-            const [editingService, setEditingService] = useState({ name: '', price: '', desc: '', duration: 30, firestoreId: null });
-            const [expandedBooking, setExpandedBooking] = useState(null);
-
-            // Stato extra per il giorno selezionato dal cliente nell'agenda
             const [clientSelectedDate, setClientSelectedDate] = useState(null);
 
             const simoneBarber = useMemo(() => barbers.find(b => b.name.trim().toUpperCase() === 'SIMONE'), [barbers]);
@@ -172,30 +162,52 @@
             }, [view, step, adminUser, adminSubView, isIdentified]);
 
             useEffect(() => {
+                let unsubBookings = null;
+                let unsubConfig = null;
+                let unsubAuth = null;
+                let unsubServices = null;
+                let unsubBarbers = null;
+
                 auth.onAuthStateChanged(async (u) => {
                     if (!u) await auth.signInAnonymously();
+                    
+                    const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
+                    
+                    unsubConfig = basePath.collection('config').doc('schedule').onSnapshot(doc => { 
+                        if (doc.exists) setSettings(doc.data()); 
+                        else {
+                            const initHours = {};
+                            [0,1,2,3,4,5,6].forEach(d => {
+                                initHours[d] = { open: (d !== 0 && d !== 1), am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true };
+                            });
+                            basePath.collection('config').doc('schedule').set({ openingHours: initHours }, { merge: true });
+                        }
+                    });
+
+                    unsubAuth = basePath.collection('config').doc('auth').onSnapshot(doc => { if (doc.exists && doc.data().password) { setStaffPassword(doc.data().password); setTempStaffPwd(doc.data().password); } });
+                    
+                    unsubServices = basePath.collection('services').onSnapshot(snap => {
+                        let data = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+                        if (data.length === 0) { INITIAL_SERVICES.forEach(s => basePath.collection('services').add(s)); }
+                        setServices(data.sort((a,b) => b.price - a.price));
+                    });
+                    
+                    unsubBarbers = basePath.collection('barbers').onSnapshot(snap => { setBarbers(snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.order || 0) - (b.order || 0))); });
+                    
+                    unsubBookings = basePath.collection('bookings').onSnapshot(snap => { 
+                        setBookings(snap.docs.map(d => ({id: d.id, ...d.data()}))); 
+                    }, (err) => console.log("Firebase error:", err));
+
                     setLoading(false);
                 });
-                const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
-                basePath.collection('config').doc('schedule').onSnapshot(doc => { 
-                    if (doc.exists) setSettings(doc.data()); 
-                    else {
-                        // Inizializzazione orari standard se non esistono
-                        const initHours = {};
-                        [0,1,2,3,4,5,6].forEach(d => {
-                            initHours[d] = { open: (d !== 0 && d !== 1), am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true };
-                        });
-                        basePath.collection('config').doc('schedule').set({ openingHours: initHours }, { merge: true });
-                    }
-                });
-                basePath.collection('config').doc('auth').onSnapshot(doc => { if (doc.exists && doc.data().password) { setStaffPassword(doc.data().password); setTempStaffPwd(doc.data().password); } });
-                basePath.collection('services').onSnapshot(snap => {
-                    let data = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
-                    if (data.length === 0) { INITIAL_SERVICES.forEach(s => basePath.collection('services').add(s)); }
-                    setServices(data.sort((a,b) => b.price - a.price));
-                });
-                basePath.collection('barbers').onSnapshot(snap => { setBarbers(snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.order || 0) - (b.order || 0))); });
-                basePath.collection('bookings').onSnapshot(snap => { setBookings(snap.docs.map(d => ({id: d.id, ...d.data()}))); });
+
+                return () => {
+                    if(unsubBookings) unsubBookings();
+                    if(unsubConfig) unsubConfig();
+                    if(unsubAuth) unsubAuth();
+                    if(unsubServices) unsubServices();
+                    if(unsubBarbers) unsubBarbers();
+                };
             }, []);
 
             const saveIdentity = () => {
@@ -235,7 +247,6 @@
                 const day = d.getDay();
                 const serviceDuration = selectedService.duration || 30;
 
-                // LOGICA DI FALLBACK ROBUSTA: Protezione contro dati mancanti o eccezioni eliminate
                 const defaultHours = { open: true, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true };
                 let hours = (selectedBarber.dateOverrides?.[selectedDate]) || 
                             (settings?.dateOverrides?.[selectedDate]) || 
@@ -378,7 +389,6 @@
             const UnifiedAgenda = () => {
                 const dayTimes = useMemo(() => {
                     const times = [];
-                    // Logica a 15 minuti per precisione grafica
                     for(let h=5; h<=23; h++) {
                         for(let m=0; m<60; m+=15) {
                             times.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
@@ -405,7 +415,6 @@
 
                         <div className="overflow-x-auto no-scrollbar">
                             <div className="min-w-[800px] relative">
-                                {/* Header Barbieri */}
                                 <div className="grid grid-cols-[80px_1fr] bg-black/20 border-b border-white/5 sticky top-0 z-10">
                                     <div className="p-4 text-[10px] opacity-30 font-black flex items-center justify-center">ORA</div>
                                     <div className="grid" style={{ gridTemplateColumns: `repeat(${barbers.length || 1}, 1fr)` }}>
@@ -415,7 +424,6 @@
                                     </div>
                                 </div>
 
-                                {/* Righe Orari e Slot */}
                                 <div className="relative">
                                     {dayTimes.map((time, timeIdx) => {
                                         const isMainSlot = time.endsWith(':00') || time.endsWith(':30');
@@ -426,12 +434,10 @@
                                                 </div>
                                                 <div className="grid" style={{ gridTemplateColumns: `repeat(${barbers.length || 1}, 1fr)` }}>
                                                     {barbers.map(barber => {
-                                                        // Troviamo se c'è un booking che inizia esattamente in questo slot di 15 min
                                                         const bnk = bookings.find(b => b.barberId === barber.id && b.date === adminAgendaDate && b.time === time);
                                                         
                                                         if (!bnk) return <div key={barber.id} className="border-l border-white/5 h-[30px]"></div>;
 
-                                                        // Se c'è un booking, calcoliamo quante righe da 15min deve occupare
                                                         const spanRows = Math.max(1, Math.ceil((bnk.duration || 30) / 15));
                                                         const barberColor = barber.color || '#d4af37';
 
@@ -440,7 +446,6 @@
                                                                 key={barber.id} 
                                                                 className="border-l border-white/5 relative h-[30px]"
                                                             >
-                                                                {/* Il div dell'appuntamento è posizionato in modo assoluto per "riempire" le celle successive */}
                                                                 <div 
                                                                     className="absolute inset-x-0.5 top-0.5 z-20"
                                                                     style={{ height: `${(spanRows * 30) - 4}px` }}
@@ -578,8 +583,8 @@
                                     <button type="button" onClick={()=>setNewExc({...newExc, pmActive: !newExc.pmActive})} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${newExc.pmActive ? 'bg-[#d4af37] text-[#332d2d]' : 'bg-white/5 text-white/20'}`}>{newExc.pmActive ? 'ON' : 'OFF'}</button>
                                 </div>
                                 <div className={`grid grid-cols-2 gap-3 ${newExc.pmActive ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
-                                    <input type="time" value={h.pm[0]} onChange={(e)=>setNewExc({...newExc, pm:[e.target.value, newExc.pm[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
-                                    <input type="time" value={h.pm[1]} onChange={(e)=>setNewExc({...newExc, pm:[newExc.pm[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
+                                    <input type="time" value={newExc.pm[0]} onChange={(e)=>setNewExc({...newExc, pm:[e.target.value, newExc.pm[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
+                                    <input type="time" value={newExc.pm[1]} onChange={(e)=>setNewExc({...newExc, pm:[newExc.pm[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
                                 </div>
                             </div>
                         </div>
