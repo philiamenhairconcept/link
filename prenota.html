@@ -659,7 +659,7 @@
                                                 <button key={s.firestoreId} type="button" onClick={()=>{setSelectedService(s); setStep(3);}} className="w-full philia-bg p-6 rounded-2xl border border-white/5 flex justify-between items-center hover:border-[#d4af37] text-left text-white">
                                                     <div className="flex-1 pr-4">
                                                         <div className="font-bold text-lg uppercase leading-tight">{s.name}</div>
-                                                        <p className="text-[11px] opacity-50 mt-1 italic">{s.desc}</p>
+                                                        <p className="text-[11px] opacity-50 italic mt-1">{s.desc}</p>
                                                         <div className="mt-2 inline-block bg-white/5 px-2 py-0.5 rounded border border-white/10">
                                                             <span className="text-[10px] philia-gold font-black uppercase">{s.duration} MINUTI</span>
                                                         </div>
@@ -806,7 +806,6 @@
 
                                         {adminSubView === 'gestione' && (
                                             <div className="space-y-12">
-                                                {/* Sezione Gestione Password per Simone Master */}
                                                 <section className="max-w-4xl mx-auto p-8 bg-white/5 border border-white/10 rounded-[40px]">
                                                     <h3 className="philia-gold font-black uppercase italic mb-6 text-center">Sicurezza Area Staff</h3>
                                                     <div className="flex flex-col md:flex-row gap-4 items-end">
@@ -818,7 +817,6 @@
                                                     </div>
                                                 </section>
 
-                                                {/* Sezione Orari Standard Settimanali */}
                                                 <section className="max-w-4xl mx-auto p-8 bg-white/5 border border-white/10 rounded-[40px]">
                                                     <h3 className="philia-gold font-black uppercase italic mb-8 text-center">Orari Standard Settimanali</h3>
                                                     <div className="space-y-4">
