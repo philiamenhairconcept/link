@@ -392,6 +392,13 @@
 
             // --- VISTA UNIFICATA AGENDA (REINVENTATA PER DURATE VARIABILI) ---
             const UnifiedAgenda = () => {
+                // AGGIUNTA LOGICA INDICATORE ORA SENZA CAMBIARE NULLA
+                const [now, setNow] = useState(new Date());
+                useEffect(() => {
+                    const timer = setInterval(() => setNow(new Date()), 60000);
+                    return () => clearInterval(timer);
+                }, []);
+
                 const dayTimes = useMemo(() => {
                     const times = [];
                     for(let h=5; h<=23; h++) {
@@ -402,6 +409,15 @@
                     times.push(`24:00`);
                     return times;
                 }, []);
+
+                const isToday = adminAgendaDate === new Date().toLocaleDateString('sv-SE');
+                const timeLinePos = useMemo(() => {
+                    const h = now.getHours();
+                    const m = now.getMinutes();
+                    if (h < 5 || h >= 24) return -1;
+                    // Ogni blocco da 15 min è min-h-[30px], quindi 1 minuto = 2px
+                    return ((h - 5) * 60 + m) * 2;
+                }, [now]);
 
                 const getInitials = (name) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : "??";
 
@@ -430,6 +446,14 @@
                                 </div>
 
                                 <div className="relative">
+                                    {/* INDICATORE ORA CORRENTE (STILE GOOGLE CALENDAR) */}
+                                    {isToday && timeLinePos >= 0 && (
+                                        <div className="absolute left-0 right-0 z-40 pointer-events-none" style={{ top: `${timeLinePos}px` }}>
+                                            <div className="relative w-full h-[2px] bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.7)]">
+                                                <div className="absolute -left-1 -top-[5px] w-3 h-3 bg-red-600 rounded-full border-2 border-white"></div>
+                                            </div>
+                                        </div>
+                                    )}
                                     {dayTimes.map((time, timeIdx) => {
                                         const isMainSlot = time.endsWith(':00') || time.endsWith(':30');
                                         return (
