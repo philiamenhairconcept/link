@@ -117,6 +117,7 @@
             const [bookings, setBookings] = useState([]);
             const [settings, setSettings] = useState(null);
             const [loading, setLoading] = useState(true);
+            const [currentUser, setCurrentUser] = useState(null);
 
             const [staffPassword, setStaffPassword] = useState("philia2024");
             const [tempStaffPwd, setTempStaffPwd] = useState("");
@@ -129,7 +130,6 @@
 
             const [clientSelectedDate, setClientSelectedDate] = useState(null);
 
-            // --- FIX: DEFINIZIONE STATI MANCANTI PER AREA STAFF ---
             const [editingService, setEditingService] = useState({ name: '', price: '', desc: '', duration: 30, firestoreId: null });
             const [newExc, setNewExc] = useState({ date: '', open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true });
             const [expandedBooking, setExpandedBooking] = useState(null);
@@ -166,54 +166,71 @@
                 }
             }, [view, step, adminUser, adminSubView, isIdentified]);
 
+            // --- FIX: GESTIONE AUTENTICAZIONE E SYNC REAL-TIME ---
             useEffect(() => {
-                let unsubBookings = null;
-                let unsubConfig = null;
-                let unsubAuth = null;
-                let unsubServices = null;
-                let unsubBarbers = null;
+                const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+                    if (!user) {
+                        await auth.signInAnonymously();
+                    } else {
+                        setCurrentUser(user);
+                    }
+                });
+                return () => unsubscribeAuth();
+            }, []);
 
-                auth.onAuthStateChanged(async (u) => {
-                    if (!u) await auth.signInAnonymously();
-                    
-                    const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
-                    
-                    unsubConfig = basePath.collection('config').doc('schedule').onSnapshot(doc => { 
-                        if (doc.exists) setSettings(doc.data()); 
-                        else {
-                            const initHours = {};
-                            [0,1,2,3,4,5,6].forEach(d => {
-                                initHours[d] = { open: (d !== 0 && d !== 1), am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true };
-                            });
-                            basePath.collection('config').doc('schedule').set({ openingHours: initHours }, { merge: true });
-                        }
-                    });
+            useEffect(() => {
+                if (!currentUser) return;
 
-                    unsubAuth = basePath.collection('config').doc('auth').onSnapshot(doc => { if (doc.exists && doc.data().password) { setStaffPassword(doc.data().password); setTempStaffPwd(doc.data().password); } });
-                    
-                    unsubServices = basePath.collection('services').onSnapshot(snap => {
-                        let data = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
-                        if (data.length === 0) { INITIAL_SERVICES.forEach(s => basePath.collection('services').add(s)); }
-                        setServices(data.sort((a,b) => b.price - a.price));
-                    });
-                    
-                    unsubBarbers = basePath.collection('barbers').onSnapshot(snap => { setBarbers(snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.order || 0) - (b.order || 0))); });
-                    
-                    unsubBookings = basePath.collection('bookings').onSnapshot(snap => { 
-                        setBookings(snap.docs.map(d => ({id: d.id, ...d.data()}))); 
-                    }, (err) => console.log("Firebase error:", err));
-
-                    setLoading(false);
+                const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
+                
+                // Listener Orari e Configurazione
+                const unsubConfig = basePath.collection('config').doc('schedule').onSnapshot(doc => { 
+                    if (doc.exists) setSettings(doc.data()); 
+                    else {
+                        const initHours = {};
+                        [0,1,2,3,4,5,6].forEach(d => {
+                            initHours[d] = { open: (d !== 0 && d !== 1), am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true };
+                        });
+                        basePath.collection('config').doc('schedule').set({ openingHours: initHours }, { merge: true });
+                    }
                 });
 
+                // Listener Password Staff
+                const unsubAuth = basePath.collection('config').doc('auth').onSnapshot(doc => { 
+                    if (doc.exists && doc.data().password) { 
+                        setStaffPassword(doc.data().password); 
+                        setTempStaffPwd(doc.data().password); 
+                    } 
+                });
+                
+                // Listener Servizi
+                const unsubServices = basePath.collection('services').onSnapshot(snap => {
+                    let data = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+                    if (data.length === 0) { INITIAL_SERVICES.forEach(s => basePath.collection('services').add(s)); }
+                    setServices(data.sort((a,b) => b.price - a.price));
+                });
+                
+                // Listener Barbieri
+                const unsubBarbers = basePath.collection('barbers').onSnapshot(snap => { 
+                    setBarbers(snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.order || 0) - (b.order || 0))); 
+                });
+                
+                // --- FIX CRITICO: LISTENER REAL-TIME PRENOTAZIONI ---
+                // Questo listener garantisce che ogni volta che Simone elimina un record, 
+                // l'array 'bookings' dello stato React venga aggiornato istantaneamente per tutti i client.
+                const unsubBookings = basePath.collection('bookings').onSnapshot(snap => { 
+                    setBookings(snap.docs.map(d => ({id: d.id, ...d.data()}))); 
+                    setLoading(false);
+                }, (err) => console.log("Firebase error:", err));
+
                 return () => {
-                    if(unsubBookings) unsubBookings();
-                    if(unsubConfig) unsubConfig();
-                    if(unsubAuth) unsubAuth();
-                    if(unsubServices) unsubServices();
-                    if(unsubBarbers) unsubBarbers();
+                    unsubBookings();
+                    unsubConfig();
+                    unsubAuth();
+                    unsubServices();
+                    unsubBarbers();
                 };
-            }, []);
+            }, [currentUser]);
 
             const saveIdentity = () => {
                 const trimmedPhone = clientPhone.toString().trim().replace(/\s+/g, '');
@@ -390,18 +407,15 @@
                 } catch (e) { alert("Errore aggiornamento orari."); }
             };
 
-            // --- VISTA UNIFICATA AGENDA (REINVENTATA PER DURATE VARIABILI) ---
             const UnifiedAgenda = () => {
-                // AGGIUNTA LOGICA INDICATORE ORA SINCRONIZZATO GMT+2
                 const [now, setNow] = useState(new Date());
                 useEffect(() => {
                     const update = () => {
-                        // Calcoliamo l'ora locale di Roma (GMT+2) ignorando quella del dispositivo
                         const romeTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Rome"}));
                         setNow(romeTime);
                     };
                     update();
-                    const timer = setInterval(update, 30000); // Aggiorna ogni 30 sec
+                    const timer = setInterval(update, 30000); 
                     return () => clearInterval(timer);
                 }, []);
 
@@ -421,7 +435,6 @@
                     const h = now.getHours();
                     const m = now.getMinutes();
                     if (h < 5 || h >= 24) return -1;
-                    // Calcolo di precisione: ogni riga da 15 min è 30px + 1px di bordo inferiore = 31px totali
                     const totalMinutes = (h - 5) * 60 + m;
                     return totalMinutes * (31 / 15);
                 }, [now]);
@@ -453,7 +466,6 @@
                                 </div>
 
                                 <div className="relative">
-                                    {/* INDICATORE ORA CORRENTE (STILE GOOGLE CALENDAR) */}
                                     {isToday && timeLinePos >= 0 && (
                                         <div className="absolute left-0 right-0 z-40 pointer-events-none" style={{ top: `${timeLinePos}px` }}>
                                             <div className="relative w-full h-[2px] bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.7)]">
@@ -478,14 +490,8 @@
                                                         const barberColor = barber.color || '#d4af37';
 
                                                         return (
-                                                            <div 
-                                                                key={barber.id} 
-                                                                className="border-l border-white/5 relative h-[30px]"
-                                                            >
-                                                                <div 
-                                                                    className="absolute inset-x-0.5 top-0.5 z-20"
-                                                                    style={{ height: `${(spanRows * 30) - 4}px` }}
-                                                                >
+                                                            <div key={barber.id} className="border-l border-white/5 relative h-[30px]">
+                                                                <div className="absolute inset-x-0.5 top-0.5 z-20" style={{ height: `${(spanRows * 31) - 4}px` }}>
                                                                     <button 
                                                                         type="button"
                                                                         onClick={() => setExpandedBooking(bnk)}
