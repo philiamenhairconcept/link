@@ -122,6 +122,12 @@
             const [staffPassword, setStaffPassword] = useState("philia2024");
             const [tempStaffPwd, setTempStaffPwd] = useState("");
 
+            // STATI PER RENDICONTAZIONE
+            const [accountingPin, setAccountingPin] = useState("2024");
+            const [tempAccountingInput, setTempAccountingInput] = useState("");
+            const [isAccountingUnlocked, setIsAccountingUnlocked] = useState(false);
+            const [newAccountingPin, setNewAccountingPin] = useState("");
+
             const [calendarViewDate, setCalendarViewDate] = useState(new Date());
             const [selectedBarber, setSelectedBarber] = useState(null);
             const [selectedService, setSelectedService] = useState(null);
@@ -166,7 +172,6 @@
                 }
             }, [view, step, adminUser, adminSubView, isIdentified]);
 
-            // --- FIX: GESTIONE AUTENTICAZIONE E SYNC REAL-TIME ---
             useEffect(() => {
                 const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
                     if (!user) {
@@ -183,7 +188,6 @@
 
                 const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
                 
-                // Listener Orari e Configurazione
                 const unsubConfig = basePath.collection('config').doc('schedule').onSnapshot(doc => { 
                     if (doc.exists) setSettings(doc.data()); 
                     else {
@@ -195,29 +199,29 @@
                     }
                 });
 
-                // Listener Password Staff
                 const unsubAuth = basePath.collection('config').doc('auth').onSnapshot(doc => { 
-                    if (doc.exists && doc.data().password) { 
-                        setStaffPassword(doc.data().password); 
-                        setTempStaffPwd(doc.data().password); 
+                    if (doc.exists) {
+                        if(doc.data().password) {
+                            setStaffPassword(doc.data().password); 
+                            setTempStaffPwd(doc.data().password);
+                        }
+                        if(doc.data().accountingPin) {
+                            setAccountingPin(doc.data().accountingPin);
+                            setNewAccountingPin(doc.data().accountingPin);
+                        }
                     } 
                 });
                 
-                // Listener Servizi
                 const unsubServices = basePath.collection('services').onSnapshot(snap => {
                     let data = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
                     if (data.length === 0) { INITIAL_SERVICES.forEach(s => basePath.collection('services').add(s)); }
                     setServices(data.sort((a,b) => b.price - a.price));
                 });
                 
-                // Listener Barbieri
                 const unsubBarbers = basePath.collection('barbers').onSnapshot(snap => { 
                     setBarbers(snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.order || 0) - (b.order || 0))); 
                 });
                 
-                // --- FIX CRITICO: LISTENER REAL-TIME PRENOTAZIONI ---
-                // Questo listener garantisce che ogni volta che Simone elimina un record, 
-                // l'array 'bookings' dello stato React venga aggiornato istantaneamente per tutti i client.
                 const unsubBookings = basePath.collection('bookings').onSnapshot(snap => { 
                     setBookings(snap.docs.map(d => ({id: d.id, ...d.data()}))); 
                     setLoading(false);
@@ -253,6 +257,7 @@
                     serviceId: selectedService.firestoreId || selectedService.id, serviceName: selectedService.name,
                     date: selectedDate, time: selectedSlot,
                     duration: selectedService.duration || 30,
+                    price: selectedService.price || 0,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').add(booking);
@@ -387,6 +392,14 @@
                 try {
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('auth').set({ password: tempStaffPwd }, { merge: true });
                     alert("Password aggiornata correttamente! 🔐");
+                } catch (e) { alert("Errore nel salvataggio."); }
+            };
+
+            const updateAccountingPin = async () => {
+                if (!newAccountingPin || newAccountingPin.length < 4) return alert("Inserisci un PIN valido (min. 4 cifre).");
+                try {
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('auth').set({ accountingPin: newAccountingPin }, { merge: true });
+                    alert("PIN Rendicontazione aggiornato! 🔐");
                 } catch (e) { alert("Errore nel salvataggio."); }
             };
 
@@ -560,6 +573,126 @@
                                 </div>
                             </div>
                         )}
+                    </div>
+                );
+            };
+
+            const AccountingView = () => {
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
+
+                // Calcolo statistiche
+                const stats = useMemo(() => {
+                    const barberData = {};
+                    const serviceCount = {};
+                    let grandTotal = 0;
+
+                    bookings.forEach(b => {
+                        const bDate = new Date(b.date + 'T' + b.time + ':00');
+                        // Filtro: stesso mese e stesso anno
+                        if (bDate.getMonth() === currentMonth && bDate.getFullYear() === currentYear) {
+                            // Definizione di servizio "concluso" (inizio + durata)
+                            const endMin = timeToMinutes(b.time) + (b.duration || 30);
+                            const nowRome = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+                            const curMin = nowRome.getHours() * 60 + nowRome.getMinutes();
+                            const isToday = b.date === nowRome.toLocaleDateString('sv-SE');
+                            const isPastDate = b.date < nowRome.toLocaleDateString('sv-SE');
+
+                            if (isPastDate || (isToday && endMin <= curMin)) {
+                                const price = b.price || 0;
+                                // Per barbiere
+                                if (!barberData[b.barberName]) barberData[b.barberName] = 0;
+                                barberData[b.barberName] += price;
+                                // Per servizio
+                                if (!serviceCount[b.serviceName]) serviceCount[b.serviceName] = 0;
+                                serviceCount[b.serviceName] += 1;
+                                // Totale generale
+                                grandTotal += price;
+                            }
+                        }
+                    });
+
+                    const topServices = Object.entries(serviceCount).sort((a,b) => b[1] - a[1]);
+                    return { barberData, grandTotal, topServices };
+                }, [bookings, currentMonth, currentYear]);
+
+                if (!isAccountingUnlocked) {
+                    return (
+                        <div className="fade-in max-w-md mx-auto text-center py-20">
+                            <h3 className="philia-gold font-black uppercase italic text-2xl mb-8">Area Riservata Master</h3>
+                            <div className="philia-bg p-8 rounded-[40px] border border-white/10 shadow-2xl">
+                                <p className="text-[10px] opacity-50 uppercase font-black mb-4">Inserisci PIN Rendicontazione</p>
+                                <input 
+                                    type="password" 
+                                    value={tempAccountingInput} 
+                                    onChange={(e) => setTempAccountingInput(e.target.value)}
+                                    className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-center text-2xl font-black philia-gold outline-none mb-6"
+                                    placeholder="****"
+                                />
+                                <button 
+                                    onClick={() => {
+                                        if (tempAccountingInput === accountingPin) {
+                                            setIsAccountingUnlocked(true);
+                                        } else {
+                                            alert("PIN Errato");
+                                            setTempAccountingInput("");
+                                        }
+                                    }}
+                                    className="w-full philia-btn p-5 rounded-2xl font-black uppercase text-xs"
+                                >
+                                    Sblocca Dati
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="fade-in space-y-10 pb-20">
+                        <div className="flex justify-between items-center px-4">
+                            <h3 className="text-2xl font-black italic philia-gold uppercase">Rendiconto {MONTHS_NAME[currentMonth]}</h3>
+                            <button onClick={() => setIsAccountingUnlocked(false)} className="text-[10px] opacity-30 uppercase font-black">Blocca 🔒</button>
+                        </div>
+
+                        {/* Riepilogo Totale */}
+                        <div className="philia-bg p-10 rounded-[50px] border-2 border-[#d4af37]/30 shadow-[0_0_50px_rgba(212,175,55,0.1)] text-center">
+                            <p className="text-xs philia-gold font-black uppercase tracking-[5px] mb-2">Incasso Totale Stimato</p>
+                            <h2 className="text-6xl font-black italic">€{stats.grandTotal}</h2>
+                            <p className="text-[9px] opacity-30 mt-4 uppercase font-bold italic">*Calcolato su servizi effettivamente conclusi ad oggi</p>
+                        </div>
+
+                        {/* Griglia Barbieri */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {Object.entries(stats.barberData).map(([name, total]) => (
+                                <div key={name} className="philia-bg p-6 rounded-[35px] border border-white/5 flex justify-between items-center">
+                                    <div>
+                                        <p className="text-[10px] opacity-40 font-black uppercase">Staff</p>
+                                        <p className="text-xl font-black italic uppercase">{name}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] philia-gold font-black uppercase">Valore</p>
+                                        <p className="text-2xl font-black">€{total}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Classifica Servizi */}
+                        <div className="philia-bg p-8 rounded-[40px] border border-white/5">
+                            <h4 className="philia-gold font-black uppercase italic mb-6 border-b border-white/5 pb-4">Classifica Servizi più richiesti</h4>
+                            <div className="space-y-4">
+                                {stats.topServices.map(([name, count], index) => (
+                                    <div key={name} className="flex justify-between items-center bg-black/20 p-4 rounded-2xl">
+                                        <div className="flex items-center gap-4">
+                                            <span className="w-8 h-8 rounded-full bg-[#d4af37] text-[#332d2d] flex items-center justify-center font-black text-xs italic">{index + 1}</span>
+                                            <p className="font-bold uppercase text-sm italic">{name}</p>
+                                        </div>
+                                        <p className="font-black philia-gold">{count} <span className="text-[9px] opacity-50 ml-1">VOLTE</span></p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 );
             };
@@ -795,16 +928,17 @@
                         {view === 'admin' && (
                             <div className="space-y-6 pb-20 fade-in text-white">
                                 {adminUser === 'SIMONE' && (
-                                    <div className="flex gap-2 p-2 bg-black/40 rounded-3xl mb-8 border border-white/5">
-                                        <button type="button" onClick={() => setAdminSubView('agenda')} className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs ${adminSubView === 'agenda' ? 'philia-btn text-[#332d2d]' : 'text-white/20'}`}>Agenda</button>
-                                        <button type="button" onClick={() => setAdminSubView('gestione')} className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs ${adminSubView === 'gestione' ? 'philia-btn text-[#332d2d]' : 'text-white/20'}`}>Salone</button>
-                                        <button type="button" onClick={() => setAdminSubView('catalogo')} className={`flex-1 p-5 rounded-2xl font-black uppercase italic text-xs ${adminSubView === 'catalogo' ? 'philia-btn text-[#332d2d]' : 'text-white/20'}`}>Catalogo</button>
+                                    <div className="flex gap-2 p-2 bg-black/40 rounded-3xl mb-8 border border-white/5 overflow-x-auto no-scrollbar">
+                                        <button type="button" onClick={() => setAdminSubView('agenda')} className={`min-w-[100px] p-5 rounded-2xl font-black uppercase italic text-[10px] ${adminSubView === 'agenda' ? 'philia-btn text-[#332d2d]' : 'text-white/20'}`}>Agenda</button>
+                                        <button type="button" onClick={() => setAdminSubView('gestione')} className={`min-w-[100px] p-5 rounded-2xl font-black uppercase italic text-[10px] ${adminSubView === 'gestione' ? 'philia-btn text-[#332d2d]' : 'text-white/20'}`}>Salone</button>
+                                        <button type="button" onClick={() => setAdminSubView('catalogo')} className={`min-w-[100px] p-5 rounded-2xl font-black uppercase italic text-[10px] ${adminSubView === 'catalogo' ? 'philia-btn text-[#332d2d]' : 'text-white/20'}`}>Catalogo</button>
+                                        <button type="button" onClick={() => { setAdminSubView('rendicontazione'); setIsAccountingUnlocked(false); setTempAccountingInput(""); }} className={`min-w-[100px] p-5 rounded-2xl font-black uppercase italic text-[10px] ${adminSubView === 'rendicontazione' ? 'philia-btn text-[#332d2d]' : 'text-white/20'}`}>Rendiconto</button>
                                     </div>
                                 )}
 
                                 <div className="flex justify-between items-center border-b border-white/5 pb-6 text-white">
                                     <h2 className="text-2xl font-black italic uppercase philia-gold">
-                                        {adminUser === 'SIMONE' ? (adminSubView === 'agenda' ? 'PANNELLO MASTER' : (adminSubView === 'gestione' ? 'SETTAGGI' : 'LISTINO')) : `AGENDA ${adminUser}`}
+                                        {adminUser === 'SIMONE' ? (adminSubView === 'agenda' ? 'PANNELLO MASTER' : (adminSubView === 'gestione' ? 'SETTAGGI' : (adminSubView === 'catalogo' ? 'LISTINO' : 'RENDICONTO'))) : `AGENDA ${adminUser}`}
                                     </h2>
                                     <button type="button" onClick={() => window.history.back()} className="philia-gold text-xs font-bold uppercase border border-white/10 px-6 py-3 rounded-full">Indietro</button>
                                 </div>
@@ -812,6 +946,8 @@
                                 {adminUser === 'SIMONE' ? (
                                     <div className="space-y-12">
                                         {adminSubView === 'agenda' && <UnifiedAgenda />}
+                                        
+                                        {adminSubView === 'rendicontazione' && <AccountingView />}
                                         
                                         {adminSubView === 'catalogo' && (
                                             <div className="space-y-12 max-w-4xl mx-auto">
@@ -856,6 +992,17 @@
                                                             <input type="text" value={tempStaffPwd} onChange={(e) => setTempStaffPwd(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none mt-1" placeholder="Inserisci password..." />
                                                         </div>
                                                         <button onClick={updateStaffPassword} className="philia-btn p-4 px-10 rounded-xl font-black uppercase text-xs text-[#332d2d] shadow-lg h-[56px] w-full md:w-auto">Aggiorna</button>
+                                                    </div>
+                                                </section>
+
+                                                <section className="max-w-4xl mx-auto p-8 bg-white/5 border border-white/10 rounded-[40px] mt-6">
+                                                    <h3 className="philia-gold font-black uppercase italic mb-6 text-center">PIN Rendicontazione</h3>
+                                                    <div className="flex flex-col md:flex-row gap-4 items-end">
+                                                        <div className="flex-1 text-left w-full">
+                                                            <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white">Nuovo PIN Rendiconto</label>
+                                                            <input type="text" value={newAccountingPin} onChange={(e) => setNewAccountingPin(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none mt-1" placeholder="Crea PIN..." />
+                                                        </div>
+                                                        <button onClick={updateAccountingPin} className="philia-btn p-4 px-10 rounded-xl font-black uppercase text-xs text-[#332d2d] shadow-lg h-[56px] w-full md:w-auto">Salva PIN</button>
                                                     </div>
                                                 </section>
 
