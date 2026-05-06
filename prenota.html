@@ -578,36 +578,39 @@
             };
 
             const AccountingView = () => {
-                const now = new Date();
-                const currentMonth = now.getMonth();
-                const currentYear = now.getFullYear();
+                const nowRome = useMemo(() => new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Rome"})), []);
+                const currentMonth = nowRome.getMonth();
+                const currentYear = nowRome.getFullYear();
 
-                // Calcolo statistiche
                 const stats = useMemo(() => {
                     const barberData = {};
                     const serviceCount = {};
                     let grandTotal = 0;
 
+                    const todayStr = nowRome.getFullYear() + '-' + String(nowRome.getMonth() + 1).padStart(2, '0') + '-' + String(nowRome.getDate()).padStart(2, '0');
+                    const curMin = nowRome.getHours() * 60 + nowRome.getMinutes();
+
                     bookings.forEach(b => {
                         const bDate = new Date(b.date + 'T' + b.time + ':00');
-                        // Filtro: stesso mese e stesso anno
                         if (bDate.getMonth() === currentMonth && bDate.getFullYear() === currentYear) {
-                            // Definizione di servizio "concluso" (inizio + durata)
                             const endMin = timeToMinutes(b.time) + (b.duration || 30);
-                            const nowRome = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Rome"}));
-                            const curMin = nowRome.getHours() * 60 + nowRome.getMinutes();
-                            const isToday = b.date === nowRome.toLocaleDateString('sv-SE');
-                            const isPastDate = b.date < nowRome.toLocaleDateString('sv-SE');
+                            const isToday = b.date === todayStr;
+                            const isPastDate = b.date < todayStr;
 
                             if (isPastDate || (isToday && endMin <= curMin)) {
-                                const price = b.price || 0;
-                                // Per barbiere
+                                // RECUPERO PREZZO DAL LISTINO SE ASSENTE NEL BOOKING
+                                let price = b.price;
+                                if (price === undefined || price === null || price === 0) {
+                                    const sFound = services.find(s => s.firestoreId === b.serviceId || s.id === b.serviceId);
+                                    price = sFound ? sFound.price : 0;
+                                }
+
                                 if (!barberData[b.barberName]) barberData[b.barberName] = 0;
                                 barberData[b.barberName] += price;
-                                // Per servizio
+
                                 if (!serviceCount[b.serviceName]) serviceCount[b.serviceName] = 0;
                                 serviceCount[b.serviceName] += 1;
-                                // Totale generale
+
                                 grandTotal += price;
                             }
                         }
@@ -615,7 +618,7 @@
 
                     const topServices = Object.entries(serviceCount).sort((a,b) => b[1] - a[1]);
                     return { barberData, grandTotal, topServices };
-                }, [bookings, currentMonth, currentYear]);
+                }, [bookings, services, currentMonth, currentYear, nowRome]);
 
                 if (!isAccountingUnlocked) {
                     return (
@@ -655,14 +658,12 @@
                             <button onClick={() => setIsAccountingUnlocked(false)} className="text-[10px] opacity-30 uppercase font-black">Blocca 🔒</button>
                         </div>
 
-                        {/* Riepilogo Totale */}
                         <div className="philia-bg p-10 rounded-[50px] border-2 border-[#d4af37]/30 shadow-[0_0_50px_rgba(212,175,55,0.1)] text-center">
                             <p className="text-xs philia-gold font-black uppercase tracking-[5px] mb-2">Incasso Totale Stimato</p>
                             <h2 className="text-6xl font-black italic">€{stats.grandTotal}</h2>
-                            <p className="text-[9px] opacity-30 mt-4 uppercase font-bold italic">*Calcolato su servizi effettivamente conclusi ad oggi</p>
+                            <p className="text-[9px] opacity-30 mt-4 uppercase font-bold italic">*Calcolato su servizi conclusi alle ore {nowRome.getHours()}:{String(nowRome.getMinutes()).padStart(2, '0')}</p>
                         </div>
 
-                        {/* Griglia Barbieri */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {Object.entries(stats.barberData).map(([name, total]) => (
                                 <div key={name} className="philia-bg p-6 rounded-[35px] border border-white/5 flex justify-between items-center">
@@ -678,7 +679,6 @@
                             ))}
                         </div>
 
-                        {/* Classifica Servizi */}
                         <div className="philia-bg p-8 rounded-[40px] border border-white/5">
                             <h4 className="philia-gold font-black uppercase italic mb-6 border-b border-white/5 pb-4">Classifica Servizi più richiesti</h4>
                             <div className="space-y-4">
