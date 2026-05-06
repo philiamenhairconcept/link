@@ -47,6 +47,7 @@
         const IconCalendar = () => <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>;
         const IconClock = () => <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>;
         const IconUser = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>;
+        const IconBell = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>;
 
         // Palette Colori per Barbieri
         const BARBER_PALETTE = [
@@ -127,6 +128,10 @@
             const [tempAccountingInput, setTempAccountingInput] = useState("");
             const [isAccountingUnlocked, setIsAccountingUnlocked] = useState(false);
             const [newAccountingPin, setNewAccountingPin] = useState("");
+
+            // STATI PER NOTIFICHE
+            const [notifications, setNotifications] = useState([]);
+            const [showStaffNotifications, setShowStaffNotifications] = useState(false);
 
             const [calendarViewDate, setCalendarViewDate] = useState(new Date());
             const [selectedBarber, setSelectedBarber] = useState(null);
@@ -227,14 +232,36 @@
                     setLoading(false);
                 }, (err) => console.log("Firebase error:", err));
 
+                // Listener Notifiche
+                const unsubNotif = basePath.collection('notifications').onSnapshot(snap => {
+                    setNotifications(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                });
+
                 return () => {
                     unsubBookings();
                     unsubConfig();
                     unsubAuth();
                     unsubServices();
                     unsubBarbers();
+                    unsubNotif();
                 };
             }, [currentUser]);
+
+            const addNotification = async (type, title, msg, targetPhone = null) => {
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('notifications').add({
+                    type, title, msg, targetPhone, timestamp: firebase.firestore.FieldValue.serverTimestamp(), read: false
+                });
+            };
+
+            const markNotificationsAsRead = async (type) => {
+                const targetNotifs = notifications.filter(n => n.type === type && !n.read && (type === 'staff' || n.targetPhone === clientPhone));
+                const batch = db.batch();
+                targetNotifs.forEach(n => {
+                    const ref = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('notifications').doc(n.id);
+                    batch.update(ref, { read: true });
+                });
+                await batch.commit();
+            };
 
             const saveIdentity = () => {
                 const trimmedPhone = clientPhone.toString().trim().replace(/\s+/g, '');
@@ -261,6 +288,12 @@
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').add(booking);
+                
+                // NOTIFICA ALLO STAFF
+                const dateObj = new Date(selectedDate);
+                const dateStr = `${dateObj.getDate()}/${dateObj.getMonth() + 1}`;
+                await addNotification('staff', 'Nuova Prenotazione!', `Ciao, ${clientName} ha appena prenotato ${selectedService.name}, per il ${dateStr} alle ore ${selectedSlot}`);
+                
                 alert("Appuntamento fissato! ✂️");
                 setView('my-bookings');
                 setStep(1);
@@ -565,7 +598,18 @@
                                     </div>
                                     <button 
                                         type="button"
-                                        onClick={async () => { if(confirm("Eliminare?")) { await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(expandedBooking.id).delete(); setExpandedBooking(null); } }} 
+                                        onClick={async () => { 
+                                            if(confirm("Eliminare?")) { 
+                                                // NOTIFICA AL CLIENTE
+                                                const d = new Date(expandedBooking.date);
+                                                const dName = WEEKDAYS_NAME[d.getDay()];
+                                                const dStr = `${d.getDate()} ${MONTHS_NAME[d.getMonth()]}`;
+                                                await addNotification('customer', 'Appuntamento Annullato', `${expandedBooking.barberName} ha annullato il tuo appuntamento fissato per ${dName} ${dStr} alle ore ${expandedBooking.time}`, expandedBooking.customerPhone);
+
+                                                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(expandedBooking.id).delete(); 
+                                                setExpandedBooking(null); 
+                                            } 
+                                        }} 
                                         className="w-full py-4 text-[10px] font-black uppercase text-red-500 border border-red-500/20 rounded-2xl"
                                     >
                                         Elimina Appuntamento
@@ -703,7 +747,24 @@
                         <div className="flex items-center gap-2 text-white">
                             <p className="philia-gold font-black text-xl italic leading-none">{b.time}</p>
                         </div>
-                        <button type="button" onClick={async () => { if(confirm("Eliminare?")) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete(); }} className="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500/30 group-hover:text-red-500 rounded-full text-xs">✕</button>
+                        <button type="button" onClick={async () => { 
+                            if(confirm("Eliminare?")) {
+                                // Se è lo staff che annulla (view === 'admin'), notifica il cliente
+                                if(view === 'admin') {
+                                    const d = new Date(b.date);
+                                    const dName = WEEKDAYS_NAME[d.getDay()];
+                                    const dStr = `${d.getDate()} ${MONTHS_NAME[d.getMonth()]}`;
+                                    await addNotification('customer', 'Appuntamento Annullato', `${b.barberName} ha annullato il tuo appuntamento fissato per ${dName} ${dStr} alle ore ${b.time}`, b.customerPhone);
+                                } else {
+                                    // Se è il cliente che annulla, notifica lo staff
+                                    const dObj = new Date(b.date);
+                                    const dStr = `${dObj.getDate()}/${dObj.getMonth() + 1}`;
+                                    await addNotification('staff', 'Disdetta Cliente', `Ciao, ${b.customerName} ha appena annullato ${b.serviceName} del ${dStr} alle ore ${b.time}`);
+                                }
+
+                                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete(); 
+                            }
+                        }} className="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500/30 group-hover:text-red-500 rounded-full text-xs">✕</button>
                     </div>
                     <p className="font-black uppercase text-base leading-tight mb-1 text-white">{b.customerName}</p>
                     <p className="text-[10px] opacity-40 uppercase font-bold line-clamp-1 italic mb-3 text-white">{b.serviceName} ({b.duration} min)</p>
@@ -804,6 +865,9 @@
                 </div>
             );
 
+            const unreadStaffCount = notifications.filter(n => n.type === 'staff' && !n.read).length;
+            const unreadCustomerCount = notifications.filter(n => n.type === 'customer' && n.targetPhone === clientPhone && !n.read).length;
+
             return (
                 <div className="app-container min-h-screen pb-24 shadow-2xl relative bg-[#1a1a1a] flex flex-col overflow-hidden">
                     <div className="p-6 philia-bg border-b border-white/5 flex justify-between items-center sticky top-0 z-50 text-white">
@@ -811,10 +875,38 @@
                             <img src="logo.png" alt="Philia" className="h-8 w-auto" />
                             <h1 className="text-xl font-black philia-gold uppercase italic leading-none">Philia</h1>
                         </div>
-                        <button type="button" onClick={() => { if(prompt("Password:") === staffPassword) setView('admin-login'); }} className="text-white/10 hover:text-[#d4af37] p-2 transition-colors">⚙️</button>
+                        <div className="flex items-center gap-4">
+                            {adminUser && (
+                                <button onClick={() => { setShowStaffNotifications(!showStaffNotifications); markNotificationsAsRead('staff'); }} className="relative text-white/50 hover:text-white transition-colors">
+                                    <IconBell />
+                                    {unreadStaffCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full text-[8px] flex items-center justify-center text-white font-black">{unreadStaffCount}</span>}
+                                </button>
+                            )}
+                            <button type="button" onClick={() => { if(prompt("Password:") === staffPassword) setView('admin-login'); }} className="text-white/10 hover:text-[#d4af37] p-2 transition-colors">⚙️</button>
+                        </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar relative">
+                        {showStaffNotifications && adminUser && (
+                            <div className="absolute inset-x-0 top-0 z-[60] p-6 fade-in">
+                                <div className="philia-bg rounded-[30px] border border-white/10 shadow-2xl overflow-hidden">
+                                    <div className="p-4 bg-black/20 flex justify-between items-center border-b border-white/5">
+                                        <h4 className="philia-gold font-black uppercase italic text-xs">Notifiche Staff</h4>
+                                        <button onClick={() => setShowStaffNotifications(false)} className="text-xs opacity-50">Chiudi</button>
+                                    </div>
+                                    <div className="max-h-96 overflow-y-auto p-4 space-y-3 no-scrollbar text-white text-left">
+                                        {notifications.filter(n => n.type === 'staff').sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)).map(n => (
+                                            <div key={n.id} className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                                                <p className="font-black philia-gold text-[10px] uppercase mb-1">{n.title}</p>
+                                                <p className="text-xs font-medium leading-relaxed">{n.msg}</p>
+                                            </div>
+                                        ))}
+                                        {notifications.filter(n => n.type === 'staff').length === 0 && <p className="text-center opacity-20 italic text-xs py-10">Nessuna notifica</p>}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {view === 'booking' && (
                             <div className="fade-in max-w-xl mx-auto text-center">
                                 {step === 1 && (
@@ -944,7 +1036,7 @@
                                 </div>
                                 
                                 {adminUser === 'SIMONE' ? (
-                                    <div className="space-y-12">
+                                    <div className="space-y-12 text-white">
                                         {adminSubView === 'agenda' && <UnifiedAgenda />}
                                         
                                         {adminSubView === 'rendicontazione' && <AccountingView />}
@@ -964,12 +1056,12 @@
                                                         <button type="button" onClick={addOrUpdateService} className="philia-btn p-4 rounded-xl font-black uppercase text-xs text-[#332d2d]">Salva</button>
                                                     </div>
                                                 </div>
-                                                <div className="grid gap-4">
+                                                <div className="grid gap-4 text-white">
                                                     {services.map(s => (
                                                         <div key={s.firestoreId} className="philia-bg p-6 rounded-3xl border border-white/5 flex justify-between items-center text-left text-white">
-                                                            <div className="flex-1 pr-4">
-                                                                <p className="font-black text-lg uppercase leading-none mb-1">{s.name}</p>
-                                                                <p className="text-[11px] opacity-50 italic mb-2 leading-relaxed">{s.desc}</p>
+                                                            <div className="flex-1 pr-4 text-white">
+                                                                <p className="font-black text-lg uppercase leading-none mb-1 text-white">{s.name}</p>
+                                                                <p className="text-[11px] opacity-50 italic mb-2 leading-relaxed text-white">{s.desc}</p>
                                                                 <p className="text-[11px] philia-gold uppercase font-black">€{s.price} • {s.duration} min</p>
                                                             </div>
                                                             <div className="flex gap-2">
@@ -1136,7 +1228,7 @@
                                                     <h4 className="philia-gold font-black uppercase italic text-2xl leading-none">Mio Diario</h4>
                                                     <p className="text-[10px] opacity-40 uppercase font-black mt-2">{bookings.filter(b => b.barberName === adminUser && b.date === adminAgendaDate).length} APPUNTAMENTI</p>
                                                 </div>
-                                                <div className="p-5 flex-1 overflow-y-auto no-scrollbar">
+                                                <div className="p-5 flex-1 overflow-y-auto no-scrollbar text-white">
                                                     {bookings.filter(b => b.barberName === adminUser && b.date === adminAgendaDate).sort((a, b) => a.time.localeCompare(b.time)).map(b => <AppointmentCard key={b.id} b={b} />)}
                                                 </div>
                                             </div>
@@ -1266,6 +1358,11 @@
                                                                     type="button" 
                                                                     onClick={async () => {
                                                                         if(confirm("Vuoi davvero annullare questo appuntamento?")) {
+                                                                            // Notifica allo Staff
+                                                                            const dObj = new Date(b.date);
+                                                                            const dStr = `${dObj.getDate()}/${dObj.getMonth() + 1}`;
+                                                                            await addNotification('staff', 'Disdetta Cliente', `Ciao, ${b.customerName} ha appena annullato ${b.serviceName} del ${dStr} alle ore ${b.time}`);
+                                                                            
                                                                             await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete();
                                                                         }
                                                                     }} 
@@ -1283,6 +1380,30 @@
                                         </div>
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {view === 'notifications' && (
+                            <div className="fade-in max-w-xl mx-auto text-white">
+                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-white">LE TUE NOTIFICHE</h2>
+                                <div className="space-y-4 no-scrollbar">
+                                    {notifications
+                                        .filter(n => n.type === 'customer' && n.targetPhone === clientPhone)
+                                        .sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0))
+                                        .map(n => (
+                                            <div key={n.id} className="philia-bg p-6 rounded-[30px] border border-white/10 shadow-lg text-left">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <p className="font-black philia-gold text-[10px] uppercase tracking-widest">{n.title}</p>
+                                                    {!n.read && <span className="w-2 h-2 bg-red-600 rounded-full"></span>}
+                                                </div>
+                                                <p className="text-sm font-medium leading-relaxed italic">{n.msg}</p>
+                                            </div>
+                                        ))
+                                    }
+                                    {notifications.filter(n => n.type === 'customer' && n.targetPhone === clientPhone).length === 0 && (
+                                        <p className="text-center opacity-20 italic text-xs py-20 uppercase tracking-[4px]">Nessun avviso</p>
+                                    )}
+                                </div>
                             </div>
                         )}
 
@@ -1309,6 +1430,11 @@
                     <div className="fixed bottom-0 left-0 right-0 philia-bg border-t border-white/5 p-5 flex justify-around items-center max-w-xl mx-auto z-50 rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
                         <button type="button" onClick={()=>{setView('booking'); setStep(1);}} className={`flex flex-col items-center transition-all ${view === 'booking' ? 'philia-gold scale-125' : 'text-white/20'}`}><IconCalendar /><span className="text-[8px] font-black mt-1 uppercase tracking-widest">PRENOTA</span></button>
                         <button type="button" onClick={()=>setView('my-bookings')} className={`flex flex-col items-center transition-all ${view === 'my-bookings' ? 'philia-gold scale-125' : 'text-white/20'}`}><IconClock /><span className="text-[8px] font-black mt-1 uppercase tracking-widest">AGENDA</span></button>
+                        <button type="button" onClick={() => { setView('notifications'); markNotificationsAsRead('customer'); }} className={`flex flex-col items-center transition-all relative ${view === 'notifications' ? 'philia-gold scale-125' : 'text-white/20'}`}>
+                            <IconBell />
+                            {unreadCustomerCount > 0 && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-600 rounded-full border border-black"></span>}
+                            <span className="text-[8px] font-black mt-1 uppercase tracking-widest">AVVISI</span>
+                        </button>
                         <button type="button" onClick={() => setView('profile')} className={`flex flex-col items-center transition-all ${view === 'profile' ? 'philia-gold scale-125' : 'text-white/20'}`}><IconUser /><span className="text-[8px] font-black mt-1 uppercase tracking-widest">PROFILO</span></button>
                     </div>
                 </div>
