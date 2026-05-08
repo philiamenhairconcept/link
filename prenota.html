@@ -4,13 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Philia - Men Hair Concept</title>
-    <!-- Librerie React e Tailwind -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Firebase SDK Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -30,7 +28,6 @@
             .app-container { max-width: 1200px; margin: 2rem auto; border-radius: 24px; border: 1px solid rgba(212, 175, 55, 0.2); min-height: 85vh; }
         }
 
-        /* Supporto per la griglia dell'agenda */
         .agenda-grid {
             display: grid;
             grid-template-columns: 80px repeat(var(--barber-count), 1fr);
@@ -43,13 +40,11 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- ICONE SVG INTERNE ---
         const IconCalendar = () => <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>;
         const IconClock = () => <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>;
         const IconUser = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>;
         const IconBell = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>;
 
-        // Palette Colori per Barbieri
         const BARBER_PALETTE = [
             { name: 'Gold', hex: '#d4af37' },
             { name: 'Emerald', hex: '#10b981' },
@@ -60,7 +55,6 @@
             { name: 'Slate', hex: '#64748b' }
         ];
 
-        // --- CONFIGURAZIONE FIREBASE ---
         const firebaseConfig = {
             apiKey: "AIzaSyCvNKLOIqAz9ygOJ1Cpl4V94xm3VeKhqow",
             authDomain: "philia-men-hair-concept.firebaseapp.com",
@@ -123,13 +117,11 @@
             const [staffPassword, setStaffPassword] = useState("philia2024");
             const [tempStaffPwd, setTempStaffPwd] = useState("");
 
-            // STATI PER RENDICONTAZIONE
             const [accountingPin, setAccountingPin] = useState("2024");
             const [tempAccountingInput, setTempAccountingInput] = useState("");
             const [isAccountingUnlocked, setIsAccountingUnlocked] = useState(false);
             const [newAccountingPin, setNewAccountingPin] = useState("");
 
-            // STATI PER NOTIFICHE
             const [notifications, setNotifications] = useState([]);
             const [showStaffNotifications, setShowStaffNotifications] = useState(false);
 
@@ -232,7 +224,6 @@
                     setLoading(false);
                 }, (err) => console.log("Firebase error:", err));
 
-                // Listener Notifiche
                 const unsubNotif = basePath.collection('notifications').onSnapshot(snap => {
                     setNotifications(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 });
@@ -266,7 +257,7 @@
             const saveIdentity = () => {
                 const trimmedPhone = clientPhone.toString().trim().replace(/\s+/g, '');
                 const trimmedName = clientName.trim();
-                if (trimmedPhone.length < 9 || trimmedName.length < 2) return alert("Inserisci Nome e Cellulare validi.");
+                if (trimmedPhone.length < 9 || trimmedName.length < 2) return;
                 localStorage.setItem('philia_phone', trimmedPhone);
                 localStorage.setItem('philia_name', trimmedName);
                 setClientPhone(trimmedPhone);
@@ -274,7 +265,7 @@
                 setIsIdentified(true);
             };
 
-            const logout = () => { if(confirm("Vuoi cambiare utente o disconnetterti?")) { localStorage.removeItem('philia_phone'); localStorage.removeItem('philia_name'); window.location.reload(); } };
+            const logout = () => { localStorage.removeItem('philia_phone'); localStorage.removeItem('philia_name'); window.location.reload(); };
 
             const handleConfirm = async () => {
                 const booking = {
@@ -289,12 +280,10 @@
                 };
                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').add(booking);
                 
-                // NOTIFICA ALLO STAFF
                 const dateObj = new Date(selectedDate);
                 const dateStr = `${dateObj.getDate()}/${dateObj.getMonth() + 1}`;
                 await addNotification('staff', 'Nuova Prenotazione!', `Ciao, ${clientName} ha appena prenotato ${selectedService.name}, per il ${dateStr} alle ore ${selectedSlot}`);
                 
-                alert("Appuntamento fissato! ✂️");
                 setView('my-bookings');
                 setStep(1);
             };
@@ -347,23 +336,19 @@
             const changeAgendaDate = (offset) => { const current = new Date(adminAgendaDate + 'T00:00:00'); current.setDate(current.getDate() + offset); setAdminAgendaDate(current.toLocaleDateString('sv-SE')); };
 
             const addOrUpdateService = async () => {
-                if (!editingService.name || !editingService.price) return alert("Dati obbligatori mancanti.");
+                if (!editingService.name || !editingService.price) return;
                 const coll = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services');
                 const { firestoreId, ...dataToSave } = editingService;
                 if (firestoreId) await coll.doc(firestoreId).update(dataToSave);
                 else await coll.add({ ...dataToSave, id: Date.now().toString() });
                 setEditingService({ name: '', price: '', desc: '', duration: 30, firestoreId: null });
-                alert("Catalogo aggiornato!");
             };
 
-            const deleteService = async (id) => { if (confirm("Eliminare definitivamente?")) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services').doc(id).delete(); };
+            const deleteService = async (id) => { await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services').doc(id).delete(); };
 
             const forceResetCatalog = async () => {
-                if(confirm("Questa operazione caricherà i 20 servizi di base Philia. Procedere?")) {
-                    const coll = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services');
-                    INITIAL_SERVICES.forEach(s => coll.add(s));
-                    alert("Listino resettato!");
-                }
+                const coll = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services');
+                INITIAL_SERVICES.forEach(s => coll.add(s));
             };
 
             const toggleSkill = async (barberId, barberSkills, serviceId) => {
@@ -381,65 +366,54 @@
                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').add({ name, skills: services.map(s => s.firestoreId), order: barbers.length + 1, personalSchedule: {}, dateOverrides: {}, color: '#d4af37' });
             };
 
-            const removeBarber = async (id, name) => { if (confirm(`Rimuovere ${name}?`)) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(id).delete(); };
+            const removeBarber = async (id, name) => { await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('barbers').doc(id).delete(); };
 
             const addDateOverride = async (targetId, isGlobal = false) => {
-                if (!newExc.date) return alert("Scegli una data.");
+                if (!newExc.date) return;
                 const payload = { open: newExc.open, am: newExc.am || ['09:00', '13:00'], pm: newExc.pm || ['15:30', '20:30'], amActive: newExc.amActive, pmActive: newExc.pmActive };
-                try {
-                    const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
-                    if (isGlobal) {
-                        const newOverrides = { ...(settings?.dateOverrides || {}) };
-                        newOverrides[newExc.date] = payload;
-                        await basePath.collection('config').doc('schedule').set({ dateOverrides: newOverrides }, { merge: true });
-                    } else {
-                        const bId = targetId || simoneBarber?.id;
-                        const barber = barbers.find(x => x.id === bId);
-                        if (!barber) return alert("Errore barbiere.");
-                        const newOverrides = { ...(barber.dateOverrides || {}) };
-                        newOverrides[newExc.date] = payload;
-                        await basePath.collection('barbers').doc(barber.id).set({ dateOverrides: newOverrides }, { merge: true });
-                    }
-                    setNewExc({ date: '', open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true });
-                    alert("Salvataggio completato! ✅");
-                } catch (e) { alert("Errore database."); }
+                const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
+                if (isGlobal) {
+                    const newOverrides = { ...(settings?.dateOverrides || {}) };
+                    newOverrides[newExc.date] = payload;
+                    await basePath.collection('config').doc('schedule').set({ dateOverrides: newOverrides }, { merge: true });
+                } else {
+                    const bId = targetId || simoneBarber?.id;
+                    const barber = barbers.find(x => x.id === bId);
+                    if (!barber) return;
+                    const newOverrides = { ...(barber.dateOverrides || {}) };
+                    newOverrides[newExc.date] = payload;
+                    await basePath.collection('barbers').doc(barber.id).set({ dateOverrides: newOverrides }, { merge: true });
+                }
+                setNewExc({ date: '', open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true });
             };
 
             const removeDateOverride = async (targetId, dateKey, isGlobal = false) => {
-                try {
-                    const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
-                    if (isGlobal) {
-                        await basePath.collection('config').doc('schedule').update({
-                            [`dateOverrides.${dateKey}`]: firebase.firestore.FieldValue.delete()
-                        });
-                    } else {
-                        await basePath.collection('barbers').doc(targetId).update({
-                            [`dateOverrides.${dateKey}`]: firebase.firestore.FieldValue.delete()
-                        });
-                    }
-                } catch (e) { alert("Errore nella cancellazione."); }
+                const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
+                if (isGlobal) {
+                    await basePath.collection('config').doc('schedule').update({
+                        [`dateOverrides.${dateKey}`]: firebase.firestore.FieldValue.delete()
+                    });
+                } else {
+                    await basePath.collection('barbers').doc(targetId).update({
+                        [`dateOverrides.${dateKey}`]: firebase.firestore.FieldValue.delete()
+                    });
+                }
             };
 
             const updateStaffPassword = async () => {
-                if (!tempStaffPwd || tempStaffPwd.length < 4) return alert("Inserisci una password valida (min. 4 caratteri).");
-                try {
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('auth').set({ password: tempStaffPwd }, { merge: true });
-                    alert("Password aggiornata correttamente! 🔐");
-                } catch (e) { alert("Errore nel salvataggio."); }
+                if (!tempStaffPwd || tempStaffPwd.length < 4) return;
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('auth').set({ password: tempStaffPwd }, { merge: true });
             };
 
             const updateAccountingPin = async () => {
                 if (!newAccountingPin || newAccountingPin.length < 4) return alert("Inserisci un PIN valido (min. 4 cifre).");
-                try {
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('auth').set({ accountingPin: newAccountingPin }, { merge: true });
-                    alert("PIN Rendicontazione aggiornato! 🔐");
-                } catch (e) { alert("Errore nel salvataggio."); }
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('auth').set({ accountingPin: newAccountingPin }, { merge: true });
+                alert("PIN Rendicontazione aggiornato! 🔐");
             };
 
             const updateWeeklySchedule = async (dayIdx, field, value) => {
                 const newSchedule = { ...(settings?.openingHours || {}) };
                 if (!newSchedule[dayIdx]) newSchedule[dayIdx] = { open: true, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true };
-                
                 if (field === 'open') newSchedule[dayIdx].open = value;
                 else if (field === 'amActive') newSchedule[dayIdx].amActive = value;
                 else if (field === 'pmActive') newSchedule[dayIdx].pmActive = value;
@@ -447,10 +421,7 @@
                 else if (field === 'am1') newSchedule[dayIdx].am[1] = value;
                 else if (field === 'pm0') newSchedule[dayIdx].pm[0] = value;
                 else if (field === 'pm1') newSchedule[dayIdx].pm[1] = value;
-
-                try {
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('schedule').set({ openingHours: newSchedule }, { merge: true });
-                } catch (e) { alert("Errore aggiornamento orari."); }
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('schedule').set({ openingHours: newSchedule }, { merge: true });
             };
 
             const UnifiedAgenda = () => {
@@ -489,7 +460,7 @@
 
                 return (
                     <div className="bg-[#1a1a1a] rounded-[30px] border border-white/5 shadow-2xl overflow-hidden mb-10">
-                        <div className="p-6 bg-[#332d2d] border-b border-[#d4af37]/20 flex justify-between items-center text-white">
+                        <div className="p-6 philia-bg border-b border-[#d4af37]/20 flex justify-between items-center text-white text-left">
                             <button onClick={() => changeAgendaDate(-1)} className="p-3 bg-black/20 rounded-full philia-gold">←</button>
                             <div className="text-center">
                                 <p className="text-[10px] philia-gold font-black uppercase tracking-[3px]">
@@ -565,7 +536,7 @@
 
                         {expandedBooking && (
                             <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm fade-in">
-                                <div className="philia-bg max-w-sm w-full p-8 rounded-[40px] border border-white/10 shadow-2xl relative">
+                                <div className="philia-bg max-w-sm w-full p-8 rounded-[40px] border border-white/10 shadow-2xl relative text-left">
                                     <button onClick={() => setExpandedBooking(null)} className="absolute top-6 right-6 text-white/30 hover:text-white">✕</button>
                                     <div className="flex items-center gap-4 mb-6">
                                         <div className="w-16 h-16 rounded-full flex items-center justify-center font-black text-xl italic" style={{ backgroundColor: barbers.find(b => b.id === expandedBooking.barberId)?.color || '#d4af37', color: '#1a1a1a' }}>
@@ -600,12 +571,10 @@
                                         type="button"
                                         onClick={async () => { 
                                             if(confirm("Eliminare?")) { 
-                                                // NOTIFICA AL CLIENTE
                                                 const d = new Date(expandedBooking.date);
                                                 const dName = WEEKDAYS_NAME[d.getDay()];
                                                 const dStr = `${d.getDate()} ${MONTHS_NAME[d.getMonth()]}`;
                                                 await addNotification('customer', 'Appuntamento Annullato', `${expandedBooking.barberName} ha annullato il tuo appuntamento fissato per ${dName} ${dStr} alle ore ${expandedBooking.time}`, expandedBooking.customerPhone);
-
                                                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(expandedBooking.id).delete(); 
                                                 setExpandedBooking(null); 
                                             } 
@@ -630,7 +599,6 @@
                     const barberData = {};
                     const serviceCount = {};
                     let grandTotal = 0;
-
                     const todayStr = nowRome.getFullYear() + '-' + String(nowRome.getMonth() + 1).padStart(2, '0') + '-' + String(nowRome.getDate()).padStart(2, '0');
                     const curMin = nowRome.getHours() * 60 + nowRome.getMinutes();
 
@@ -640,36 +608,30 @@
                             const endMin = timeToMinutes(b.time) + (b.duration || 30);
                             const isToday = b.date === todayStr;
                             const isPastDate = b.date < todayStr;
-
                             if (isPastDate || (isToday && endMin <= curMin)) {
-                                // RECUPERO PREZZO DAL LISTINO SE ASSENTE NEL BOOKING
                                 let price = b.price;
                                 if (price === undefined || price === null || price === 0) {
                                     const sFound = services.find(s => s.firestoreId === b.serviceId || s.id === b.serviceId);
                                     price = sFound ? sFound.price : 0;
                                 }
-
                                 if (!barberData[b.barberName]) barberData[b.barberName] = 0;
                                 barberData[b.barberName] += price;
-
                                 if (!serviceCount[b.serviceName]) serviceCount[b.serviceName] = 0;
                                 serviceCount[b.serviceName] += 1;
-
                                 grandTotal += price;
                             }
                         }
                     });
-
                     const topServices = Object.entries(serviceCount).sort((a,b) => b[1] - a[1]);
                     return { barberData, grandTotal, topServices };
                 }, [bookings, services, currentMonth, currentYear, nowRome]);
 
                 if (!isAccountingUnlocked) {
                     return (
-                        <div className="fade-in max-w-md mx-auto text-center py-20">
+                        <div className="fade-in max-w-md mx-auto text-center py-20 text-white">
                             <h3 className="philia-gold font-black uppercase italic text-2xl mb-8">Area Riservata Master</h3>
                             <div className="philia-bg p-8 rounded-[40px] border border-white/10 shadow-2xl">
-                                <p className="text-[10px] opacity-50 uppercase font-black mb-4">Inserisci PIN Rendicontazione</p>
+                                <p className="text-[10px] opacity-50 uppercase font-black mb-4 text-white">Inserisci PIN Rendicontazione</p>
                                 <input 
                                     type="password" 
                                     value={tempAccountingInput} 
@@ -696,47 +658,60 @@
                 }
 
                 return (
-                    <div className="fade-in space-y-10 pb-20">
+                    <div className="fade-in space-y-10 pb-20 text-white text-left">
                         <div className="flex justify-between items-center px-4">
                             <h3 className="text-2xl font-black italic philia-gold uppercase">Rendiconto {MONTHS_NAME[currentMonth]}</h3>
-                            <button onClick={() => setIsAccountingUnlocked(false)} className="text-[10px] opacity-30 uppercase font-black">Blocca 🔒</button>
+                            <button onClick={() => setIsAccountingUnlocked(false)} className="text-[10px] opacity-30 uppercase font-black text-white">Blocca 🔒</button>
                         </div>
 
                         <div className="philia-bg p-10 rounded-[50px] border-2 border-[#d4af37]/30 shadow-[0_0_50px_rgba(212,175,55,0.1)] text-center">
                             <p className="text-xs philia-gold font-black uppercase tracking-[5px] mb-2">Incasso Totale Stimato</p>
                             <h2 className="text-6xl font-black italic">€{stats.grandTotal}</h2>
-                            <p className="text-[9px] opacity-30 mt-4 uppercase font-bold italic">*Calcolato su servizi conclusi alle ore {nowRome.getHours()}:{String(nowRome.getMinutes()).padStart(2, '0')}</p>
+                            <p className="text-[9px] opacity-30 mt-4 uppercase font-bold italic text-white">*Calcolato su servizi conclusi alle ore {nowRome.getHours()}:{String(nowRome.getMinutes()).padStart(2, '0')}</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {Object.entries(stats.barberData).map(([name, total]) => (
                                 <div key={name} className="philia-bg p-6 rounded-[35px] border border-white/5 flex justify-between items-center">
-                                    <div>
-                                        <p className="text-[10px] opacity-40 font-black uppercase">Staff</p>
-                                        <p className="text-xl font-black italic uppercase">{name}</p>
+                                    <div className="text-left">
+                                        <p className="text-[10px] opacity-40 font-black uppercase text-white">Staff</p>
+                                        <p className="text-xl font-black italic uppercase text-white">{name}</p>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-[10px] philia-gold font-black uppercase">Valore</p>
-                                        <p className="text-2xl font-black">€{total}</p>
+                                        <p className="text-2xl font-black text-white">€{total}</p>
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="philia-bg p-8 rounded-[40px] border border-white/5">
+                        <div className="philia-bg p-8 rounded-[40px] border border-white/5 text-left">
                             <h4 className="philia-gold font-black uppercase italic mb-6 border-b border-white/5 pb-4">Classifica Servizi più richiesti</h4>
                             <div className="space-y-4">
                                 {stats.topServices.map(([name, count], index) => (
                                     <div key={name} className="flex justify-between items-center bg-black/20 p-4 rounded-2xl">
                                         <div className="flex items-center gap-4">
                                             <span className="w-8 h-8 rounded-full bg-[#d4af37] text-[#332d2d] flex items-center justify-center font-black text-xs italic">{index + 1}</span>
-                                            <p className="font-bold uppercase text-sm italic">{name}</p>
+                                            <p className="font-bold uppercase text-sm italic text-white">{name}</p>
                                         </div>
                                         <p className="font-black philia-gold">{count} <span className="text-[9px] opacity-50 ml-1">VOLTE</span></p>
                                     </div>
                                 ))}
                             </div>
                         </div>
+
+                        {}
+                        <section className="max-w-4xl mx-auto p-8 bg-white/5 border border-[#d4af37]/20 rounded-[40px] mt-10">
+                            <h3 className="philia-gold font-black uppercase italic mb-6 text-center">Impostazioni PIN Rendiconto</h3>
+                            <div className="flex flex-col md:flex-row gap-4 items-end">
+                                <div className="flex-1 text-left w-full">
+                                    <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white">Nuovo PIN Rendiconto</label>
+                                    <input type="text" value={newAccountingPin} onChange={(e) => setNewAccountingPin(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none mt-1" placeholder="Crea PIN..." />
+                                </div>
+                                <button onClick={updateAccountingPin} className="philia-btn p-4 px-10 rounded-xl font-black uppercase text-xs text-[#332d2d] shadow-lg h-[56px] w-full md:w-auto">Salva Nuovo PIN</button>
+                            </div>
+                            <p className="text-[9px] opacity-30 mt-4 text-center uppercase font-black text-white">Cambia il codice di accesso per questa sezione</p>
+                        </section>
                     </div>
                 );
             };
@@ -749,19 +724,16 @@
                         </div>
                         <button type="button" onClick={async () => { 
                             if(confirm("Eliminare?")) {
-                                // Se è lo staff che annulla (view === 'admin'), notifica il cliente
                                 if(view === 'admin') {
                                     const d = new Date(b.date);
                                     const dName = WEEKDAYS_NAME[d.getDay()];
                                     const dStr = `${d.getDate()} ${MONTHS_NAME[d.getMonth()]}`;
                                     await addNotification('customer', 'Appuntamento Annullato', `${b.barberName} ha annullato il tuo appuntamento fissato per ${dName} ${dStr} alle ore ${b.time}`, b.customerPhone);
                                 } else {
-                                    // Se è il cliente che annulla, notifica lo staff
                                     const dObj = new Date(b.date);
                                     const dStr = `${dObj.getDate()}/${dObj.getMonth() + 1}`;
                                     await addNotification('staff', 'Disdetta Cliente', `Ciao, ${b.customerName} ha appena annullato ${b.serviceName} del ${dStr} alle ore ${b.time}`);
                                 }
-
                                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete(); 
                             }
                         }} className="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500/30 group-hover:text-red-500 rounded-full text-xs">✕</button>
@@ -779,7 +751,7 @@
             );
 
             const AgendaDateNavAdmin = () => (
-                <div className="flex flex-col md:flex-row justify-between items-center bg-[#332d2d] p-6 rounded-[35px] border border-white/10 shadow-2xl gap-6 mb-6">
+                <div className="flex flex-col md:flex-row justify-between items-center bg-[#332d2d] p-6 rounded-[35px] border border-white/10 shadow-2xl gap-6 mb-6 text-white">
                     <div className="flex items-center gap-6">
                         <button type="button" onClick={() => changeAgendaDate(-1)} className="w-12 h-12 flex items-center justify-center bg-black/20 hover:bg-[#d4af37] rounded-full border border-white/5 font-black text-xl">←</button>
                         <div className="text-center">
@@ -793,7 +765,7 @@
             );
 
             const ExceptionForm = ({ targetId, isMasterMode = false }) => (
-                <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5">
+                <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5 text-white text-left">
                     <div className="space-y-1 text-left">
                         <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white">Scegli Data</label>
                         <input type="date" value={newExc.date} onChange={(e)=>setNewExc({...newExc, date: e.target.value})} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none" />
@@ -994,7 +966,7 @@
                                         <div className="philia-bg p-8 rounded-[40px] border border-white/5 shadow-2xl text-white">
                                             <p className="font-black text-2xl philia-gold uppercase italic mb-8 leading-tight">{selectedService?.name}</p>
                                             <div className="bg-black/20 py-6 px-10 rounded-3xl border border-white/5 inline-block">
-                                                <p className="font-bold text-lg mb-1 tracking-tight">{selectedDate}</p>
+                                                <p className="font-bold text-lg mb-1 tracking-tight text-white">{selectedDate}</p>
                                                 <p className="philia-gold font-black text-4xl italic">{selectedSlot}</p>
                                             </div>
                                         </div>
@@ -1028,7 +1000,7 @@
                                     </div>
                                 )}
 
-                                <div className="flex justify-between items-center border-b border-white/5 pb-6 text-white">
+                                <div className="flex justify-between items-center border-b border-white/5 pb-6 text-white text-left">
                                     <h2 className="text-2xl font-black italic uppercase philia-gold">
                                         {adminUser === 'SIMONE' ? (adminSubView === 'agenda' ? 'PANNELLO MASTER' : (adminSubView === 'gestione' ? 'SETTAGGI' : (adminSubView === 'catalogo' ? 'LISTINO' : 'RENDICONTO'))) : `AGENDA ${adminUser}`}
                                     </h2>
@@ -1037,12 +1009,12 @@
                                 
                                 {adminUser === 'SIMONE' ? (
                                     <div className="space-y-12 text-white">
-                                        {adminSubView === 'agenda' && <UnifiedAgenda />}
+                                        {adminSubView === 'agenda' && UnifiedAgenda()}
                                         
-                                        {adminSubView === 'rendicontazione' && <AccountingView />}
+                                        {adminSubView === 'rendicontazione' && AccountingView()}
                                         
                                         {adminSubView === 'catalogo' && (
-                                            <div className="space-y-12 max-w-4xl mx-auto">
+                                            <div className="space-y-12 max-w-4xl mx-auto text-left">
                                                 <div className="p-8 bg-white/5 border border-white/10 rounded-[40px] space-y-6">
                                                     <div className="flex justify-between items-center mb-4">
                                                         <h3 className="philia-gold font-black uppercase text-sm">Nuovo o Modifica</h3>
@@ -1076,25 +1048,14 @@
 
                                         {adminSubView === 'gestione' && (
                                             <div className="space-y-12">
-                                                <section className="max-w-4xl mx-auto p-8 bg-white/5 border border-white/10 rounded-[40px]">
-                                                    <h3 className="philia-gold font-black uppercase italic mb-6 text-center">Sicurezza Area Staff</h3>
+                                                <section className="max-w-4xl mx-auto p-8 bg-white/5 border border-white/10 rounded-[40px] text-center">
+                                                    <h3 className="philia-gold font-black uppercase italic mb-6">Sicurezza Area Staff</h3>
                                                     <div className="flex flex-col md:flex-row gap-4 items-end">
                                                         <div className="flex-1 text-left w-full">
                                                             <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white">Nuova Password Staff</label>
                                                             <input type="text" value={tempStaffPwd} onChange={(e) => setTempStaffPwd(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none mt-1" placeholder="Inserisci password..." />
                                                         </div>
                                                         <button onClick={updateStaffPassword} className="philia-btn p-4 px-10 rounded-xl font-black uppercase text-xs text-[#332d2d] shadow-lg h-[56px] w-full md:w-auto">Aggiorna</button>
-                                                    </div>
-                                                </section>
-
-                                                <section className="max-w-4xl mx-auto p-8 bg-white/5 border border-white/10 rounded-[40px] mt-6">
-                                                    <h3 className="philia-gold font-black uppercase italic mb-6 text-center">PIN Rendicontazione</h3>
-                                                    <div className="flex flex-col md:flex-row gap-4 items-end">
-                                                        <div className="flex-1 text-left w-full">
-                                                            <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white">Nuovo PIN Rendiconto</label>
-                                                            <input type="text" value={newAccountingPin} onChange={(e) => setNewAccountingPin(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none mt-1" placeholder="Crea PIN..." />
-                                                        </div>
-                                                        <button onClick={updateAccountingPin} className="philia-btn p-4 px-10 rounded-xl font-black uppercase text-xs text-[#332d2d] shadow-lg h-[56px] w-full md:w-auto">Salva PIN</button>
                                                     </div>
                                                 </section>
 
@@ -1105,7 +1066,7 @@
                                                             const h = settings?.openingHours?.[d] || { open: true, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true };
                                                             return (
                                                                 <div key={d} className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col md:flex-row md:items-center gap-6">
-                                                                    <div className="w-32">
+                                                                    <div className="w-32 text-left">
                                                                         <p className="font-black text-sm uppercase italic text-white">{WEEKDAYS_NAME[d]}</p>
                                                                         <button 
                                                                             onClick={() => updateWeeklySchedule(d, 'open', !h.open)}
@@ -1117,9 +1078,9 @@
                                                                     
                                                                     {h.open && (
                                                                         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                                            <div className="space-y-2">
+                                                                            <div className="space-y-2 text-left">
                                                                                 <div className="flex justify-between items-center px-1">
-                                                                                    <span className="text-[9px] font-black opacity-40 uppercase">Mattina</span>
+                                                                                    <span className="text-[9px] font-black opacity-40 uppercase text-white">Mattina</span>
                                                                                     <button onClick={() => updateWeeklySchedule(d, 'amActive', !h.amActive)} className={`text-[8px] font-black ${h.amActive ? 'philia-gold' : 'text-white/20'}`}>{h.amActive ? 'ON' : 'OFF'}</button>
                                                                                 </div>
                                                                                 <div className={`flex gap-2 ${!h.amActive && 'opacity-20 pointer-events-none'}`}>
@@ -1127,9 +1088,9 @@
                                                                                     <input type="time" value={h.am[1]} onChange={(e) => updateWeeklySchedule(d, 'am1', e.target.value)} className="bg-black/40 p-2 rounded-lg text-xs flex-1 text-white border border-white/5" />
                                                                                 </div>
                                                                             </div>
-                                                                            <div className="space-y-2">
+                                                                            <div className="space-y-2 text-left">
                                                                                 <div className="flex justify-between items-center px-1">
-                                                                                    <span className="text-[9px] font-black opacity-40 uppercase">Pomeriggio</span>
+                                                                                    <span className="text-[9px] font-black opacity-40 uppercase text-white">Pomeriggio</span>
                                                                                     <button onClick={() => updateWeeklySchedule(d, 'pmActive', !h.pmActive)} className={`text-[8px] font-black ${h.pmActive ? 'philia-gold' : 'text-white/20'}`}>{h.pmActive ? 'ON' : 'OFF'}</button>
                                                                                 </div>
                                                                                 <div className={`flex gap-2 ${!h.pmActive && 'opacity-20 pointer-events-none'}`}>
@@ -1145,17 +1106,17 @@
                                                     </div>
                                                 </section>
 
-                                                <section className="max-w-4xl mx-auto p-8 bg-white/5 border border-white/10 rounded-[40px]">
-                                                    <h3 className="philia-gold font-black uppercase italic mb-6 text-center">Nuova Eccezione (Ferie/Orari Speciali)</h3>
+                                                <section className="max-w-4xl mx-auto p-8 bg-white/5 border border-white/10 rounded-[40px] text-center">
+                                                    <h3 className="philia-gold font-black uppercase italic mb-6">Nuova Eccezione (Ferie/Orari Speciali)</h3>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left">
-                                                        <ExceptionForm targetId={simoneBarber?.id} isMasterMode={true} />
+                                                        {ExceptionForm({ targetId: simoneBarber?.id, isMasterMode: true })}
                                                         <div className="max-h-[500px] overflow-y-auto space-y-4 no-scrollbar text-left text-white">
                                                             <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] mb-2">Eccezioni Attive</p>
                                                             {Object.entries(settings?.dateOverrides || {}).sort().map(([date, h]) => (
                                                                 <div key={date + "_global"} className="bg-white/5 p-4 rounded-2xl border border-white/5 flex justify-between items-center">
                                                                     <div>
                                                                         <p className="font-black text-sm philia-gold">{date} (TUTTI)</p>
-                                                                        <p className="text-[9px] uppercase opacity-50">{h.open ? 'ORARIO SPECIFICO' : 'CHIUSO'}</p>
+                                                                        <p className="text-[9px] uppercase opacity-50 text-white">{h.open ? 'ORARIO SPECIFICO' : 'CHIUSO'}</p>
                                                                     </div>
                                                                     <button type="button" onClick={()=>removeDateOverride(null, date, true)} className="text-red-500 font-black px-2 text-xl">✕</button>
                                                                 </div>
@@ -1165,7 +1126,7 @@
                                                                     <div key={date + "_" + barber.id} className="philia-bg p-4 rounded-2xl border border-white/10 flex justify-between items-center">
                                                                         <div>
                                                                             <p className="font-black text-sm text-[#d4af37]">{date} ({barber.name})</p>
-                                                                            <p className="text-[9px] uppercase opacity-50">{h.open ? 'ORARIO SPECIFICO' : 'ASSENTE'}</p>
+                                                                            <p className="text-[9px] uppercase opacity-50 text-white">{h.open ? 'ORARIO SPECIFICO' : 'ASSENTE'}</p>
                                                                         </div>
                                                                         <button type="button" onClick={()=>removeDateOverride(barber.id, date)} className="text-red-500 font-black px-2 text-xl">✕</button>
                                                                     </div>
@@ -1186,8 +1147,8 @@
                                                                 {barber.name.trim().toUpperCase() !== 'SIMONE' && <button type="button" onClick={()=>removeBarber(barber.id, barber.name)} className="absolute top-5 right-5 text-white/20 hover:text-red-500">✕</button>}
                                                                 <h4 className="text-center font-black uppercase italic mb-6 border-b border-white/5 pb-3" style={{ color: barber.color || '#d4af37' }}>{barber.name}</h4>
                                                                 
-                                                                <div className="mb-6">
-                                                                    <p className="text-[10px] opacity-30 font-black uppercase mb-3">Colore Agenda</p>
+                                                                <div className="mb-6 text-left">
+                                                                    <p className="text-[10px] opacity-30 font-black uppercase mb-3 text-white">Colore Agenda</p>
                                                                     <div className="flex flex-wrap gap-2">
                                                                         {BARBER_PALETTE.map(c => (
                                                                             <button 
@@ -1221,25 +1182,25 @@
                                     </div>
                                 ) : (
                                     <div className="space-y-12">
-                                        <AgendaDateNavAdmin />
+                                        {AgendaDateNavAdmin()}
                                         <div className="max-w-xl mx-auto">
                                             <div className="philia-bg rounded-[40px] border border-white/5 flex flex-col min-h-[500px] shadow-2xl overflow-hidden text-center text-white">
                                                 <div className="p-6 border-b border-white/5 bg-gradient-to-b from-black/20 to-transparent">
                                                     <h4 className="philia-gold font-black uppercase italic text-2xl leading-none">Mio Diario</h4>
-                                                    <p className="text-[10px] opacity-40 uppercase font-black mt-2">{bookings.filter(b => b.barberName === adminUser && b.date === adminAgendaDate).length} APPUNTAMENTI</p>
+                                                    <p className="text-[10px] opacity-40 uppercase font-black mt-2 text-white">{bookings.filter(b => b.barberName === adminUser && b.date === adminAgendaDate).length} APPUNTAMENTI</p>
                                                 </div>
                                                 <div className="p-5 flex-1 overflow-y-auto no-scrollbar text-white">
-                                                    {bookings.filter(b => b.barberName === adminUser && b.date === adminAgendaDate).sort((a, b) => a.time.localeCompare(b.time)).map(b => <AppointmentCard key={b.id} b={b} />)}
+                                                    {bookings.filter(b => b.barberName === adminUser && b.date === adminAgendaDate).sort((a, b) => a.time.localeCompare(b.time)).map(b => AppointmentCard({ b }))}
                                                 </div>
                                             </div>
 
                                             <div className="mt-12 space-y-8">
                                                 <div className="border-l-4 border-[#d4af37] pl-4 text-left">
                                                     <h3 className="philia-gold font-black uppercase italic text-xl">Le mie Eccezioni</h3>
-                                                    <p className="text-[10px] opacity-40 uppercase font-black">Gestisci i tuoi orari o giorni di assenza</p>
+                                                    <p className="text-[10px] opacity-40 uppercase font-black text-white">Gestisci i tuoi orari o giorni di assenza</p>
                                                 </div>
                                                 
-                                                <ExceptionForm targetId={currentCollaborator?.id} isMasterMode={false} />
+                                                {ExceptionForm({ targetId: currentCollaborator?.id, isMasterMode: false })}
 
                                                 <div className="space-y-4 text-left">
                                                     <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] ml-2">Eccezioni Attive</p>
@@ -1247,7 +1208,7 @@
                                                         <div key={date + "_" + currentCollaborator.id} className="philia-bg p-4 rounded-2xl border border-white/10 flex justify-between items-center">
                                                             <div>
                                                                 <p className="font-black text-sm text-[#d4af37]">{date}</p>
-                                                                <p className="text-[9px] uppercase opacity-50">{h.open ? 'ORARIO SPECIFICO' : 'ASSENTE'}</p>
+                                                                <p className="text-[9px] uppercase opacity-50 text-white">{h.open ? 'ORARIO SPECIFICO' : 'ASSENTE'}</p>
                                                             </div>
                                                             <button type="button" onClick={()=>removeDateOverride(currentCollaborator.id, date)} className="text-red-500 font-black px-2 text-xl">✕</button>
                                                         </div>
@@ -1282,10 +1243,8 @@
                                             const todayStr = new Date().toLocaleDateString('sv-SE');
                                             const now = new Date();
                                             const currentMin = now.getHours() * 60 + now.getMinutes();
-                                            
                                             const dayBookings = bookings.filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '') && b.date === dateStr);
                                             const hasBooking = dayBookings.length > 0;
-                                            
                                             const hasActiveFuture = dayBookings.some(b => {
                                                 const endMin = timeToMinutes(b.time) + (b.duration || 30);
                                                 return (b.date > todayStr) || (b.date === todayStr && endMin > currentMin);
@@ -1318,7 +1277,6 @@
                                     <div className="fade-in philia-bg p-8 rounded-[40px] border border-white/10 shadow-2xl relative text-left">
                                         <button onClick={() => setClientSelectedDate(null)} className="absolute top-6 right-6 text-white/30 hover:text-white">✕</button>
                                         <h3 className="philia-gold font-black uppercase text-center mb-6 tracking-widest">Dettagli del {clientSelectedDate}</h3>
-                                        
                                         <div className="space-y-6">
                                             {bookings
                                                 .filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '') && b.date === clientSelectedDate)
@@ -1358,11 +1316,9 @@
                                                                     type="button" 
                                                                     onClick={async () => {
                                                                         if(confirm("Vuoi davvero annullare questo appuntamento?")) {
-                                                                            // Notifica allo Staff
                                                                             const dObj = new Date(b.date);
                                                                             const dStr = `${dObj.getDate()}/${dObj.getMonth() + 1}`;
                                                                             await addNotification('staff', 'Disdetta Cliente', `Ciao, ${b.customerName} ha appena annullato ${b.serviceName} del ${dStr} alle ore ${b.time}`);
-                                                                            
                                                                             await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete();
                                                                         }
                                                                     }} 
@@ -1374,9 +1330,6 @@
                                                         </div>
                                                     );
                                                 })}
-                                            {bookings.filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '') && b.date === clientSelectedDate).length === 0 && (
-                                                <p className="text-center opacity-40 text-xs italic py-4">Nessun appuntamento trovato per oggi.</p>
-                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -1385,7 +1338,7 @@
 
                         {view === 'notifications' && (
                             <div className="fade-in max-w-xl mx-auto text-white">
-                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-white">LE TUE NOTIFICHE</h2>
+                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-white text-left">LE TUE NOTIFICHE</h2>
                                 <div className="space-y-4 no-scrollbar">
                                     {notifications
                                         .filter(n => n.type === 'customer' && n.targetPhone === clientPhone)
@@ -1396,7 +1349,7 @@
                                                     <p className="font-black philia-gold text-[10px] uppercase tracking-widest">{n.title}</p>
                                                     {!n.read && <span className="w-2 h-2 bg-red-600 rounded-full"></span>}
                                                 </div>
-                                                <p className="text-sm font-medium leading-relaxed italic">{n.msg}</p>
+                                                <p className="text-sm font-medium leading-relaxed italic text-white">{n.msg}</p>
                                             </div>
                                         ))
                                     }
@@ -1409,14 +1362,14 @@
 
                         {view === 'profile' && (
                             <div className="fade-in max-w-xl mx-auto text-white">
-                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-white">IL TUO PROFILO</h2>
+                                <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-white text-left">IL TUO PROFILO</h2>
                                 <div className="philia-bg p-8 rounded-[40px] border border-white/10 shadow-2xl space-y-8">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] uppercase opacity-30 font-black tracking-[3px] ml-2">Nome e Cognome</label>
+                                    <div className="space-y-2 text-left">
+                                        <label className="text-[10px] uppercase opacity-30 font-black tracking-[3px] ml-2 text-white">Nome e Cognome</label>
                                         <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} onBlur={saveIdentity} className="w-full bg-black/40 border border-white/5 p-5 rounded-2xl text-xl font-bold text-white outline-none" />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] uppercase opacity-30 font-black tracking-[3px] ml-2">Cellulare</label>
+                                    <div className="space-y-2 text-left">
+                                        <label className="text-[10px] uppercase opacity-30 font-black tracking-[3px] ml-2 text-white">Cellulare</label>
                                         <div className="w-full bg-black/20 p-5 rounded-2xl text-xl font-black text-[#d4af37] opacity-60">{clientPhone}</div>
                                     </div>
                                     <div className="pt-6 border-t border-white/5">
