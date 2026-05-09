@@ -102,6 +102,369 @@
         const WEEKDAYS_NAME = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
         const MONTHS_NAME = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
 
+        // Funzioni helper spostate fuori per stabilità
+        const timeToMinutes = (timeStr) => { if(!timeStr) return 0; const [h, m] = timeStr.split(':').map(Number); return h * 60 + m; };
+        const getInitials = (name) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : "??";
+
+
+        // --- COMPONENTE EXCEPTION FORM ---
+        const ExceptionForm = ({ targetId, isMasterMode = false, newExc, setNewExc, addDateOverride }) => (
+            <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5">
+                <div className="space-y-1 text-left">
+                    <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white">Scegli Data</label>
+                    <input type="date" value={newExc.date} onChange={(e)=>setNewExc({...newExc, date: e.target.value})} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none" />
+                </div>
+                <button type="button" onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`w-full p-4 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>
+                    {newExc.open ? 'Giorno Aperto' : 'Giorno Chiuso (Ferie)'}
+                </button>
+                {newExc.open && (
+                    <div className="space-y-6 pt-4 border-t border-white/5">
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center px-2">
+                                <span className="text-[10px] font-black uppercase philia-gold">AM</span>
+                                <button type="button" onClick={()=>setNewExc({...newExc, amActive: !newExc.amActive})} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${newExc.amActive ? 'bg-[#d4af37] text-[#332d2d]' : 'bg-white/5 text-white/20'}`}>{newExc.amActive ? 'ON' : 'OFF'}</button>
+                            </div>
+                            <div className={`grid grid-cols-2 gap-3 ${newExc.amActive ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
+                                <input type="time" value={newExc.am[0]} onChange={(e)=>setNewExc({...newExc, am:[e.target.value, newExc.am[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
+                                <input type="time" value={newExc.am[1]} onChange={(e)=>setNewExc({...newExc, am:[newExc.am[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
+                            </div>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center px-2">
+                                <span className="text-[10px] font-black uppercase philia-gold">PM</span>
+                                <button type="button" onClick={()=>setNewExc({...newExc, pmActive: !newExc.pmActive})} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${newExc.pmActive ? 'bg-[#d4af37] text-[#332d2d]' : 'bg-white/5 text-white/20'}`}>{newExc.pmActive ? 'ON' : 'OFF'}</button>
+                            </div>
+                            <div className={`grid grid-cols-2 gap-3 ${newExc.pmActive ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
+                                <input type="time" value={newExc.pm[0]} onChange={(e)=>setNewExc({...newExc, pm:[e.target.value, newExc.pm[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
+                                <input type="time" value={newExc.pm[1]} onChange={(e)=>setNewExc({...newExc, pm:[newExc.pm[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {isMasterMode ? (
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                        <button type="button" onClick={()=>addDateOverride(null, true)} className="philia-btn p-4 rounded-xl font-black uppercase text-[10px] shadow-lg text-[#332d2d]">Tutto Salone</button>
+                        <button type="button" onClick={()=>addDateOverride(targetId, false)} className="bg-white/10 p-4 rounded-xl font-black uppercase text-[10px] text-white">Solo Simone</button>
+                    </div>
+                ) : (
+                    <button type="button" onClick={()=>addDateOverride(targetId, false)} className="w-full philia-btn p-4 rounded-xl font-black uppercase text-xs shadow-lg mt-4 text-[#332d2d]">Salva</button>
+                )}
+            </div>
+        );
+
+        // --- COMPONENTE APPOINTMENT CARD ---
+        const AppointmentCard = ({ b, barbers, view, addNotification, deleteBooking }) => (
+            <div className="bg-[#1a1a1a] p-5 rounded-[25px] border-l-8 relative group hover:bg-[#252525] transition-all shadow-lg text-left mb-4" style={{ borderLeftColor: barbers.find(x => x.id === b.barberId)?.color || '#d4af37' }}>
+                <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2 text-white">
+                        <p className="philia-gold font-black text-xl italic leading-none">{b.time}</p>
+                    </div>
+                    <button type="button" onClick={() => deleteBooking(b)} className="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500/30 group-hover:text-red-500 rounded-full text-xs">✕</button>
+                </div>
+                <p className="font-black uppercase text-base leading-tight mb-1 text-white">{b.customerName}</p>
+                <p className="text-[10px] opacity-40 uppercase font-bold line-clamp-1 italic mb-3 text-white">{b.serviceName} ({b.duration} min)</p>
+                <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5 text-white">
+                    <div className="flex items-center gap-3">
+                        <a href={`tel:${b.customerPhone}`} className="text-green-500 text-[11px] font-black tracking-widest italic">CHIAMA</a>
+                        <a href={`https://wa.me/${b.customerPhone.toString().replace(/\D/g, '')}`} target="_blank" className="text-emerald-400 text-[11px] font-black tracking-widest italic">WA</a>
+                    </div>
+                    <span className="text-[11px] font-black opacity-40">{b.customerPhone}</span>
+                </div>
+            </div>
+        );
+
+        // --- COMPONENTE UNIFIED AGENDA ---
+        const UnifiedAgenda = ({ adminAgendaDate, changeAgendaDate, barbers, bookings, setExpandedBooking, expandedBooking, getInitials, addNotification }) => {
+            const [now, setNow] = useState(new Date());
+            useEffect(() => {
+                const update = () => {
+                    const romeTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+                    setNow(romeTime);
+                };
+                update();
+                const timer = setInterval(update, 30000); 
+                return () => clearInterval(timer);
+            }, []);
+
+            const dayTimes = useMemo(() => {
+                const times = [];
+                for(let h=5; h<=23; h++) {
+                    for(let m=0; m<60; m+=15) {
+                        times.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+                    }
+                }
+                times.push(`24:00`);
+                return times;
+            }, []);
+
+            const isToday = adminAgendaDate === new Date().toLocaleDateString('sv-SE');
+            const timeLinePos = useMemo(() => {
+                const h = now.getHours();
+                const m = now.getMinutes();
+                if (h < 5 || h >= 24) return -1;
+                const totalMinutes = (h - 5) * 60 + m;
+                return totalMinutes * (31 / 15);
+            }, [now]);
+
+            return (
+                <div className="bg-[#1a1a1a] rounded-[30px] border border-white/5 shadow-2xl overflow-hidden mb-10">
+                    <div className="p-6 bg-[#332d2d] border-b border-[#d4af37]/20 flex justify-between items-center text-white">
+                        <button onClick={() => changeAgendaDate(-1)} className="p-3 bg-black/20 rounded-full philia-gold">←</button>
+                        <div className="text-center">
+                            <p className="text-[10px] philia-gold font-black uppercase tracking-[3px]">
+                                {new Date(adminAgendaDate + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long' })}
+                            </p>
+                            <h3 className="text-xl font-black italic uppercase">{new Date(adminAgendaDate + 'T00:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}</h3>
+                        </div>
+                        <button onClick={() => changeAgendaDate(1)} className="p-3 bg-black/20 rounded-full philia-gold">→</button>
+                    </div>
+
+                    <div className="overflow-x-auto no-scrollbar">
+                        <div className="min-w-[800px] relative">
+                            <div className="grid grid-cols-[80px_1fr] bg-black/20 border-b border-white/5 sticky top-0 z-10">
+                                <div className="p-4 text-[10px] opacity-30 font-black flex items-center justify-center">ORA</div>
+                                <div className="grid" style={{ gridTemplateColumns: `repeat(${barbers.length || 1}, 1fr)` }}>
+                                    {barbers.map(b => (
+                                        <div key={b.id} className="p-4 text-center font-black text-xs border-l border-white/5 uppercase italic" style={{ color: b.color || '#d4af37' }}>{b.name}</div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="relative">
+                                {isToday && timeLinePos >= 0 && (
+                                    <div className="absolute left-0 right-0 z-40 pointer-events-none" style={{ top: `${timeLinePos}px` }}>
+                                        <div className="relative w-full h-[2px] bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.7)]">
+                                            <div className="absolute -left-1 -top-[5px] w-3 h-3 bg-red-600 rounded-full border-2 border-white"></div>
+                                        </div>
+                                    </div>
+                                )}
+                                {dayTimes.map((time, timeIdx) => {
+                                    const isMainSlot = time.endsWith(':00') || time.endsWith(':30');
+                                    return (
+                                        <div key={time} className="grid grid-cols-[80px_1fr] border-b border-white/5 min-h-[30px]">
+                                            <div className="flex items-center justify-center text-[10px] font-bold opacity-30">
+                                                {isMainSlot ? time : ''}
+                                            </div>
+                                            <div className="grid" style={{ gridTemplateColumns: `repeat(${barbers.length || 1}, 1fr)` }}>
+                                                {barbers.map(barber => {
+                                                    const bnk = bookings.find(b => b.barberId === barber.id && b.date === adminAgendaDate && b.time === time);
+                                                    
+                                                    if (!bnk) return <div key={barber.id} className="border-l border-white/5 h-[30px]"></div>;
+
+                                                    const spanRows = Math.max(1, Math.ceil((bnk.duration || 30) / 15));
+                                                    const barberColor = barber.color || '#d4af37';
+
+                                                    return (
+                                                        <div key={barber.id} className="border-l border-white/5 relative h-[30px]">
+                                                            <div className="absolute inset-x-0.5 top-0.5 z-20" style={{ height: `${(spanRows * 31) - 4}px` }}>
+                                                                <button 
+                                                                    type="button"
+                                                                    onClick={() => setExpandedBooking(bnk)}
+                                                                    className="w-full h-full rounded-lg flex items-center justify-center shadow-lg transform hover:brightness-110 transition-all border border-white/10 overflow-hidden"
+                                                                    style={{ backgroundColor: barberColor }}
+                                                                >
+                                                                    <div className="bg-black/20 w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] text-white border border-white/20">
+                                                                        {getInitials(bnk.customerName)}
+                                                                    </div>
+                                                                    <span className="ml-2 text-[9px] font-black uppercase tracking-tighter text-black/60 hidden sm:block truncate px-1">
+                                                                        {bnk.customerName}
+                                                                    </span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    {expandedBooking && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm fade-in">
+                            <div className="philia-bg max-w-sm w-full p-8 rounded-[40px] border border-white/10 shadow-2xl relative">
+                                <button onClick={() => setExpandedBooking(null)} className="absolute top-6 right-6 text-white/30 hover:text-white">✕</button>
+                                <div className="flex items-center gap-4 mb-6 text-left">
+                                    <div className="w-16 h-16 rounded-full flex items-center justify-center font-black text-xl italic" style={{ backgroundColor: barbers.find(b => b.id === expandedBooking.barberId)?.color || '#d4af37', color: '#1a1a1a' }}>
+                                        {getInitials(expandedBooking.customerName)}
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xl font-black uppercase italic leading-tight text-white">{expandedBooking.customerName}</h4>
+                                        <p className="philia-gold font-bold text-sm uppercase">{expandedBooking.time} • {expandedBooking.barberName}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-4 mb-8 text-left">
+                                    <div className="p-4 bg-black/20 rounded-2xl border border-white/5">
+                                        <p className="text-[10px] opacity-40 uppercase font-black mb-1 text-white/50">Servizio</p>
+                                        <p className="font-bold text-white uppercase italic">{expandedBooking.serviceName} ({expandedBooking.duration} min)</p>
+                                    </div>
+                                    <div className="p-4 bg-black/20 rounded-2xl border border-white/5">
+                                        <p className="text-[10px] opacity-40 uppercase font-black mb-1 text-white/50">Telefono</p>
+                                        <p className="font-bold text-white">{expandedBooking.customerPhone}</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 mb-4">
+                                    <a href={`tel:${expandedBooking.customerPhone}`} className="flex flex-col items-center justify-center p-4 bg-green-500/10 text-green-500 rounded-3xl border border-green-500/20">
+                                        <svg className="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 005.454 5.455l.774-1.548a1 1 0 011.06-.539l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"></path></svg>
+                                        <span className="text-[9px] font-black uppercase">Chiama</span>
+                                    </a>
+                                    <a href={`https://wa.me/${expandedBooking.customerPhone.toString().replace(/\D/g, '')}`} target="_blank" className="flex flex-col items-center justify-center p-4 bg-emerald-500/10 text-emerald-500 rounded-3xl border border-emerald-500/20">
+                                        <svg className="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 1.742-.457zm11.234-7.16c-.3-.149-1.774-.874-2.048-.973-.274-.1-.474-.149-.674.149-.2.299-.774.973-.948 1.173-.174.199-.349.224-.648.075-.299-.149-1.265-.466-2.41-1.487-.893-.741-1.493-1.656-1.668-1.954-.174-.299-.019-.459.13-.609.134-.135.299-.349.449-.523.149-.174.199-.299.299-.498.1-.199.05-.373-.025-.523-.075-.149-.674-1.62-.924-2.261-.243-.587-.491-.507-.674-.519-.174-.012-.373-.015-.573-.015-.2 0-.523.075-.797.373s-1.047 1.022-1.047 2.49c0 1.469 1.071 2.889 1.221 3.088.149.199 2.107 3.217 5.106 4.512.714.308 1.272.492 1.706.631.717.227 1.369.195 1.884.13.573-.073 1.774-.724 2.024-1.42.249-.697.249-1.294.174-1.42-.075-.125-.274-.199-.573-.348z"/></svg>
+                                        <span className="text-[9px] font-black uppercase">WhatsApp</span>
+                                    </a>
+                                </div>
+                                <button 
+                                    type="button"
+                                    onClick={async () => { 
+                                        if(confirm("Eliminare?")) { 
+                                            const d = new Date(expandedBooking.date);
+                                            const dName = WEEKDAYS_NAME[d.getDay()];
+                                            const dStr = `${d.getDate()} ${MONTHS_NAME[d.getMonth()]}`;
+                                            await addNotification('customer', 'Appuntamento Annullato', `${expandedBooking.barberName} ha annullato il tuo appuntamento fissato per ${dName} ${dStr} alle ore ${expandedBooking.time}`, expandedBooking.customerPhone);
+                                            await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(expandedBooking.id).delete(); 
+                                            setExpandedBooking(null); 
+                                        } 
+                                    }} 
+                                    className="w-full py-4 text-[10px] font-black uppercase text-red-500 border border-red-500/20 rounded-2xl"
+                                >
+                                    Elimina Appuntamento
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- COMPONENTE ACCOUNTING VIEW ---
+        const AccountingView = ({ bookings, services, isAccountingUnlocked, setIsAccountingUnlocked, tempAccountingInput, setTempAccountingInput, accountingPin, newAccountingPin, setNewAccountingPin, updateAccountingPin }) => {
+            const nowRome = useMemo(() => new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Rome"})), []);
+            const currentMonth = nowRome.getMonth();
+            const currentYear = nowRome.getFullYear();
+
+            const stats = useMemo(() => {
+                const barberData = {};
+                const serviceCount = {};
+                let grandTotal = 0;
+
+                const todayStr = nowRome.getFullYear() + '-' + String(nowRome.getMonth() + 1).padStart(2, '0') + '-' + String(nowRome.getDate()).padStart(2, '0');
+                const curMin = nowRome.getHours() * 60 + nowRome.getMinutes();
+
+                bookings.forEach(b => {
+                    const bDate = new Date(b.date + 'T' + b.time + ':00');
+                    if (bDate.getMonth() === currentMonth && bDate.getFullYear() === currentYear) {
+                        const endMin = timeToMinutes(b.time) + (b.duration || 30);
+                        const isToday = b.date === todayStr;
+                        const isPastDate = b.date < todayStr;
+
+                        if (isPastDate || (isToday && endMin <= curMin)) {
+                            let price = b.price;
+                            if (price === undefined || price === null || price === 0) {
+                                const sFound = services.find(s => s.firestoreId === b.serviceId || s.id === b.serviceId);
+                                price = sFound ? sFound.price : 0;
+                            }
+                            if (!barberData[b.barberName]) barberData[b.barberName] = 0;
+                            barberData[b.barberName] += price;
+                            if (!serviceCount[b.serviceName]) serviceCount[b.serviceName] = 0;
+                            serviceCount[b.serviceName] += 1;
+                            grandTotal += price;
+                        }
+                    }
+                });
+                const topServices = Object.entries(serviceCount).sort((a,b) => b[1] - a[1]);
+                return { barberData, grandTotal, topServices };
+            }, [bookings, services, currentMonth, currentYear, nowRome]);
+
+            if (!isAccountingUnlocked) {
+                return (
+                    <div className="fade-in max-w-md mx-auto text-center py-20">
+                        <h3 className="philia-gold font-black uppercase italic text-2xl mb-8">Area Riservata Master</h3>
+                        <div className="philia-bg p-8 rounded-[40px] border border-white/10 shadow-2xl">
+                            <p className="text-[10px] opacity-50 uppercase font-black mb-4">Inserisci PIN Rendicontazione</p>
+                            <input 
+                                type="password" 
+                                value={tempAccountingInput} 
+                                onChange={(e) => setTempAccountingInput(e.target.value)}
+                                className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-center text-2xl font-black philia-gold outline-none mb-6"
+                                placeholder="****"
+                            />
+                            <button 
+                                onClick={() => {
+                                    if (tempAccountingInput === accountingPin) {
+                                        setIsAccountingUnlocked(true);
+                                    } else {
+                                        alert("PIN Errato");
+                                        setTempAccountingInput("");
+                                    }
+                                }}
+                                className="w-full philia-btn p-5 rounded-2xl font-black uppercase text-xs"
+                            >
+                                Sblocca Dati
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="fade-in space-y-10 pb-20 text-white">
+                    <div className="flex justify-between items-center px-4">
+                        <h3 className="text-2xl font-black italic philia-gold uppercase text-left">Rendiconto {MONTHS_NAME[currentMonth]}</h3>
+                        <button onClick={() => setIsAccountingUnlocked(false)} className="text-[10px] opacity-30 uppercase font-black text-white">Blocca 🔒</button>
+                    </div>
+
+                    <div className="philia-bg p-10 rounded-[50px] border-2 border-[#d4af37]/30 shadow-[0_0_50px_rgba(212,175,55,0.1)] text-center">
+                        <p className="text-xs philia-gold font-black uppercase tracking-[5px] mb-2">Incasso Totale Stimato</p>
+                        <h2 className="text-6xl font-black italic text-white">€{stats.grandTotal}</h2>
+                        <p className="text-[9px] opacity-30 mt-4 uppercase font-bold italic text-white/50">*Calcolato su servizi conclusi alle ore {nowRome.getHours()}:{String(nowRome.getMinutes()).padStart(2, '0')}</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {Object.entries(stats.barberData).map(([name, total]) => (
+                            <div key={name} className="philia-bg p-6 rounded-[35px] border border-white/5 flex justify-between items-center text-left">
+                                <div>
+                                    <p className="text-[10px] opacity-40 font-black uppercase text-white/50">Staff</p>
+                                    <p className="text-xl font-black italic uppercase text-white">{name}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] philia-gold font-black uppercase">Valore</p>
+                                    <p className="text-2xl font-black text-white">€{total}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="philia-bg p-8 rounded-[40px] border border-white/5 text-left">
+                        <h4 className="philia-gold font-black uppercase italic mb-6 border-b border-white/5 pb-4">Classifica Servizi più richiesti</h4>
+                        <div className="space-y-4">
+                            {stats.topServices.map(([name, count], index) => (
+                                <div key={name} className="flex justify-between items-center bg-black/20 p-4 rounded-2xl">
+                                    <div className="flex items-center gap-4">
+                                        <span className="w-8 h-8 rounded-full bg-[#d4af37] text-[#332d2d] flex items-center justify-center font-black text-xs italic">{index + 1}</span>
+                                        <p className="font-bold uppercase text-sm italic text-white">{name}</p>
+                                    </div>
+                                    <p className="font-black philia-gold">{count} <span className="text-[9px] opacity-50 ml-1 text-white/30">VOLTE</span></p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <section className="max-w-4xl mx-auto p-8 bg-white/5 border border-white/10 rounded-[40px] mt-6">
+                        <h3 className="philia-gold font-black uppercase italic mb-6 text-center">PIN Rendicontazione</h3>
+                        <div className="flex flex-col md:flex-row gap-4 items-end">
+                            <div className="flex-1 text-left w-full">
+                                <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white">Nuovo PIN Rendiconto</label>
+                                <input type="text" value={newAccountingPin} onChange={(e) => setNewAccountingPin(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none mt-1" placeholder="Crea PIN..." />
+                            </div>
+                            <button onClick={updateAccountingPin} className="philia-btn p-4 px-10 rounded-xl font-black uppercase text-xs text-[#332d2d] shadow-lg h-[56px] w-full md:w-auto">Salva PIN</button>
+                        </div>
+                    </section>
+                </div>
+            );
+        };
+
         function App() {
             const [clientPhone, setClientPhone] = useState(localStorage.getItem('philia_phone') || "");
             const [clientName, setClientName] = useState(localStorage.getItem('philia_name') || "");
@@ -232,18 +595,12 @@
                     setLoading(false);
                 }, (err) => console.log("Firebase error:", err));
 
-                // Listener Notifiche
                 const unsubNotif = basePath.collection('notifications').onSnapshot(snap => {
                     setNotifications(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 });
 
                 return () => {
-                    unsubBookings();
-                    unsubConfig();
-                    unsubAuth();
-                    unsubServices();
-                    unsubBarbers();
-                    unsubNotif();
+                    unsubBookings(); unsubConfig(); unsubAuth(); unsubServices(); unsubBarbers(); unsubNotif();
                 };
             }, [currentUser]);
 
@@ -288,32 +645,20 @@
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').add(booking);
-                
-                // NOTIFICA ALLO STAFF
                 const dateObj = new Date(selectedDate);
                 const dateStr = `${dateObj.getDate()}/${dateObj.getMonth() + 1}`;
                 await addNotification('staff', 'Nuova Prenotazione!', `Ciao, ${clientName} ha appena prenotato ${selectedService.name}, per il ${dateStr} alle ore ${selectedSlot}`);
-                
                 alert("Appuntamento fissato! ✂️");
-                setView('my-bookings');
-                setStep(1);
+                setView('my-bookings'); setStep(1);
             };
-
-            const timeToMinutes = (timeStr) => { const [h, m] = timeStr.split(':').map(Number); return h * 60 + m; };
 
             const getFreeSlots = () => {
                 if (!settings || !selectedBarber || !selectedService) return [];
                 const d = new Date(selectedDate);
                 const day = d.getDay();
                 const serviceDuration = selectedService.duration || 30;
-
                 const defaultHours = { open: true, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true };
-                let hours = (selectedBarber.dateOverrides?.[selectedDate]) || 
-                            (settings?.dateOverrides?.[selectedDate]) || 
-                            (selectedBarber.personalSchedule?.[day]) || 
-                            (settings?.openingHours?.[day]) || 
-                            defaultHours;
-
+                let hours = (selectedBarber.dateOverrides?.[selectedDate]) || (settings?.dateOverrides?.[selectedDate]) || (selectedBarber.personalSchedule?.[day]) || (settings?.openingHours?.[day]) || defaultHours;
                 if (!hours || !hours.open) return [];
                 const now = new Date();
                 const todayStr = new Date().toLocaleDateString('sv-SE');
@@ -361,8 +706,7 @@
             const forceResetCatalog = async () => {
                 if(confirm("Questa operazione caricherà i 20 servizi di base Philia. Procedere?")) {
                     const coll = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('services');
-                    INITIAL_SERVICES.forEach(s => coll.add(s));
-                    alert("Listino resettato!");
+                    INITIAL_SERVICES.forEach(s => coll.add(s)); alert("Listino resettato!");
                 }
             };
 
@@ -386,475 +730,50 @@
             const addDateOverride = async (targetId, isGlobal = false) => {
                 if (!newExc.date) return alert("Scegli una data.");
                 const payload = { open: newExc.open, am: newExc.am || ['09:00', '13:00'], pm: newExc.pm || ['15:30', '20:30'], amActive: newExc.amActive, pmActive: newExc.pmActive };
-                try {
-                    const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
-                    if (isGlobal) {
-                        const newOverrides = { ...(settings?.dateOverrides || {}) };
-                        newOverrides[newExc.date] = payload;
-                        await basePath.collection('config').doc('schedule').set({ dateOverrides: newOverrides }, { merge: true });
-                    } else {
-                        const bId = targetId || simoneBarber?.id;
-                        const barber = barbers.find(x => x.id === bId);
-                        if (!barber) return alert("Errore barbiere.");
-                        const newOverrides = { ...(barber.dateOverrides || {}) };
-                        newOverrides[newExc.date] = payload;
-                        await basePath.collection('barbers').doc(barber.id).set({ dateOverrides: newOverrides }, { merge: true });
-                    }
-                    setNewExc({ date: '', open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true });
-                    alert("Salvataggio completato! ✅");
-                } catch (e) { alert("Errore database."); }
+                const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
+                if (isGlobal) {
+                    const newOverrides = { ...(settings?.dateOverrides || {}) };
+                    newOverrides[newExc.date] = payload;
+                    await basePath.collection('config').doc('schedule').set({ dateOverrides: newOverrides }, { merge: true });
+                } else {
+                    const bId = targetId || simoneBarber?.id;
+                    const barber = barbers.find(x => x.id === bId);
+                    if (!barber) return alert("Errore barbiere.");
+                    const newOverrides = { ...(barber.dateOverrides || {}) };
+                    newOverrides[newExc.date] = payload;
+                    await basePath.collection('barbers').doc(barber.id).set({ dateOverrides: newOverrides }, { merge: true });
+                }
+                setNewExc({ date: '', open: false, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true });
+                alert("Salvataggio completato! ✅");
             };
 
             const removeDateOverride = async (targetId, dateKey, isGlobal = false) => {
-                try {
-                    const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
-                    if (isGlobal) {
-                        await basePath.collection('config').doc('schedule').update({
-                            [`dateOverrides.${dateKey}`]: firebase.firestore.FieldValue.delete()
-                        });
-                    } else {
-                        await basePath.collection('barbers').doc(targetId).update({
-                            [`dateOverrides.${dateKey}`]: firebase.firestore.FieldValue.delete()
-                        });
-                    }
-                } catch (e) { alert("Errore nella cancellazione."); }
+                const basePath = db.collection('artifacts').doc(appId).collection('public').doc('data');
+                if (isGlobal) await basePath.collection('config').doc('schedule').update({ [`dateOverrides.${dateKey}`]: firebase.firestore.FieldValue.delete() });
+                else await basePath.collection('barbers').doc(targetId).update({ [`dateOverrides.${dateKey}`]: firebase.firestore.FieldValue.delete() });
             };
 
             const updateStaffPassword = async () => {
-                if (!tempStaffPwd || tempStaffPwd.length < 4) return alert("Inserisci una password valida (min. 4 caratteri).");
-                try {
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('auth').set({ password: tempStaffPwd }, { merge: true });
-                    alert("Password aggiornata correttamente! 🔐");
-                } catch (e) { alert("Errore nel salvataggio."); }
+                if (!tempStaffPwd || tempStaffPwd.length < 4) return alert("Inserisci una password valida.");
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('auth').set({ password: tempStaffPwd }, { merge: true });
+                alert("Password aggiornata! 🔐");
             };
 
             const updateAccountingPin = async () => {
-                if (!newAccountingPin || newAccountingPin.length < 4) return alert("Inserisci un PIN valido (min. 4 cifre).");
-                try {
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('auth').set({ accountingPin: newAccountingPin }, { merge: true });
-                    alert("PIN Rendicontazione aggiornato! 🔐");
-                } catch (e) { alert("Errore nel salvataggio."); }
+                if (!newAccountingPin || newAccountingPin.length < 4) return alert("Inserisci un PIN valido.");
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('auth').set({ accountingPin: newAccountingPin }, { merge: true });
+                alert("PIN Rendicontazione aggiornato! 🔐");
             };
 
             const updateWeeklySchedule = async (dayIdx, field, value) => {
                 const newSchedule = { ...(settings?.openingHours || {}) };
                 if (!newSchedule[dayIdx]) newSchedule[dayIdx] = { open: true, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true };
-                
-                if (field === 'open') newSchedule[dayIdx].open = value;
-                else if (field === 'amActive') newSchedule[dayIdx].amActive = value;
-                else if (field === 'pmActive') newSchedule[dayIdx].pmActive = value;
-                else if (field === 'am0') newSchedule[dayIdx].am[0] = value;
-                else if (field === 'am1') newSchedule[dayIdx].am[1] = value;
-                else if (field === 'pm0') newSchedule[dayIdx].pm[0] = value;
-                else if (field === 'pm1') newSchedule[dayIdx].pm[1] = value;
-
-                try {
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('schedule').set({ openingHours: newSchedule }, { merge: true });
-                } catch (e) { alert("Errore aggiornamento orari."); }
+                if (field === 'open') newSchedule[dayIdx].open = value; else if (field === 'amActive') newSchedule[dayIdx].amActive = value; else if (field === 'pmActive') newSchedule[dayIdx].pmActive = value; else if (field === 'am0') newSchedule[dayIdx].am[0] = value; else if (field === 'am1') newSchedule[dayIdx].am[1] = value; else if (field === 'pm0') newSchedule[dayIdx].pm[0] = value; else if (field === 'pm1') newSchedule[dayIdx].pm[1] = value;
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('config').doc('schedule').set({ openingHours: newSchedule }, { merge: true });
             };
-
-            const UnifiedAgenda = () => {
-                const [now, setNow] = useState(new Date());
-                useEffect(() => {
-                    const update = () => {
-                        const romeTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Rome"}));
-                        setNow(romeTime);
-                    };
-                    update();
-                    const timer = setInterval(update, 30000); 
-                    return () => clearInterval(timer);
-                }, []);
-
-                const dayTimes = useMemo(() => {
-                    const times = [];
-                    for(let h=5; h<=23; h++) {
-                        for(let m=0; m<60; m+=15) {
-                            times.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
-                        }
-                    }
-                    times.push(`24:00`);
-                    return times;
-                }, []);
-
-                const isToday = adminAgendaDate === new Date().toLocaleDateString('sv-SE');
-                const timeLinePos = useMemo(() => {
-                    const h = now.getHours();
-                    const m = now.getMinutes();
-                    if (h < 5 || h >= 24) return -1;
-                    const totalMinutes = (h - 5) * 60 + m;
-                    return totalMinutes * (31 / 15);
-                }, [now]);
-
-                const getInitials = (name) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : "??";
-
-                return (
-                    <div className="bg-[#1a1a1a] rounded-[30px] border border-white/5 shadow-2xl overflow-hidden mb-10">
-                        <div className="p-6 bg-[#332d2d] border-b border-[#d4af37]/20 flex justify-between items-center text-white">
-                            <button onClick={() => changeAgendaDate(-1)} className="p-3 bg-black/20 rounded-full philia-gold">←</button>
-                            <div className="text-center">
-                                <p className="text-[10px] philia-gold font-black uppercase tracking-[3px]">
-                                    {new Date(adminAgendaDate + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long' })}
-                                </p>
-                                <h3 className="text-xl font-black italic uppercase">{new Date(adminAgendaDate + 'T00:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}</h3>
-                            </div>
-                            <button onClick={() => changeAgendaDate(1)} className="p-3 bg-black/20 rounded-full philia-gold">→</button>
-                        </div>
-
-                        <div className="overflow-x-auto no-scrollbar">
-                            <div className="min-w-[800px] relative">
-                                <div className="grid grid-cols-[80px_1fr] bg-black/20 border-b border-white/5 sticky top-0 z-10">
-                                    <div className="p-4 text-[10px] opacity-30 font-black flex items-center justify-center">ORA</div>
-                                    <div className="grid" style={{ gridTemplateColumns: `repeat(${barbers.length || 1}, 1fr)` }}>
-                                        {barbers.map(b => (
-                                            <div key={b.id} className="p-4 text-center font-black text-xs border-l border-white/5 uppercase italic" style={{ color: b.color || '#d4af37' }}>{b.name}</div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="relative">
-                                    {isToday && timeLinePos >= 0 && (
-                                        <div className="absolute left-0 right-0 z-40 pointer-events-none" style={{ top: `${timeLinePos}px` }}>
-                                            <div className="relative w-full h-[2px] bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.7)]">
-                                                <div className="absolute -left-1 -top-[5px] w-3 h-3 bg-red-600 rounded-full border-2 border-white"></div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {dayTimes.map((time, timeIdx) => {
-                                        const isMainSlot = time.endsWith(':00') || time.endsWith(':30');
-                                        return (
-                                            <div key={time} className="grid grid-cols-[80px_1fr] border-b border-white/5 min-h-[30px]">
-                                                <div className="flex items-center justify-center text-[10px] font-bold opacity-30">
-                                                    {isMainSlot ? time : ''}
-                                                </div>
-                                                <div className="grid" style={{ gridTemplateColumns: `repeat(${barbers.length || 1}, 1fr)` }}>
-                                                    {barbers.map(barber => {
-                                                        const bnk = bookings.find(b => b.barberId === barber.id && b.date === adminAgendaDate && b.time === time);
-                                                        
-                                                        if (!bnk) return <div key={barber.id} className="border-l border-white/5 h-[30px]"></div>;
-
-                                                        const spanRows = Math.max(1, Math.ceil((bnk.duration || 30) / 15));
-                                                        const barberColor = barber.color || '#d4af37';
-
-                                                        return (
-                                                            <div key={barber.id} className="border-l border-white/5 relative h-[30px]">
-                                                                <div className="absolute inset-x-0.5 top-0.5 z-20" style={{ height: `${(spanRows * 31) - 4}px` }}>
-                                                                    <button 
-                                                                        type="button"
-                                                                        onClick={() => setExpandedBooking(bnk)}
-                                                                        className="w-full h-full rounded-lg flex items-center justify-center shadow-lg transform hover:brightness-110 transition-all border border-white/10 overflow-hidden"
-                                                                        style={{ backgroundColor: barberColor }}
-                                                                    >
-                                                                        <div className="bg-black/20 w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] text-white border border-white/20">
-                                                                            {getInitials(bnk.customerName)}
-                                                                        </div>
-                                                                        <span className="ml-2 text-[9px] font-black uppercase tracking-tighter text-black/60 hidden sm:block truncate px-1">
-                                                                            {bnk.customerName}
-                                                                        </span>
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-
-                        {expandedBooking && (
-                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm fade-in">
-                                <div className="philia-bg max-w-sm w-full p-8 rounded-[40px] border border-white/10 shadow-2xl relative">
-                                    <button onClick={() => setExpandedBooking(null)} className="absolute top-6 right-6 text-white/30 hover:text-white">✕</button>
-                                    <div className="flex items-center gap-4 mb-6">
-                                        <div className="w-16 h-16 rounded-full flex items-center justify-center font-black text-xl italic" style={{ backgroundColor: barbers.find(b => b.id === expandedBooking.barberId)?.color || '#d4af37', color: '#1a1a1a' }}>
-                                            {getInitials(expandedBooking.customerName)}
-                                        </div>
-                                        <div>
-                                            <h4 className="text-xl font-black uppercase italic leading-tight text-white">{expandedBooking.customerName}</h4>
-                                            <p className="philia-gold font-bold text-sm uppercase">{expandedBooking.time} • {expandedBooking.barberName}</p>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-4 mb-8 text-left">
-                                        <div className="p-4 bg-black/20 rounded-2xl border border-white/5">
-                                            <p className="text-[10px] opacity-40 uppercase font-black mb-1 text-white/50">Servizio</p>
-                                            <p className="font-bold text-white uppercase italic">{expandedBooking.serviceName} ({expandedBooking.duration} min)</p>
-                                        </div>
-                                        <div className="p-4 bg-black/20 rounded-2xl border border-white/5">
-                                            <p className="text-[10px] opacity-40 uppercase font-black mb-1 text-white/50">Telefono</p>
-                                            <p className="font-bold text-white">{expandedBooking.customerPhone}</p>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3 mb-4">
-                                        <a href={`tel:${expandedBooking.customerPhone}`} className="flex flex-col items-center justify-center p-4 bg-green-500/10 text-green-500 rounded-3xl border border-green-500/20">
-                                            <svg className="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 005.454 5.455l.774-1.548a1 1 0 011.06-.539l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"></path></svg>
-                                            <span className="text-[9px] font-black uppercase">Chiama</span>
-                                        </a>
-                                        <a href={`https://wa.me/${expandedBooking.customerPhone.toString().replace(/\D/g, '')}`} target="_blank" className="flex flex-col items-center justify-center p-4 bg-emerald-500/10 text-emerald-500 rounded-3xl border border-emerald-500/20">
-                                            <svg className="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 1.742-.457zm11.234-7.16c-.3-.149-1.774-.874-2.048-.973-.274-.1-.474-.149-.674.149-.2.299-.774.973-.948 1.173-.174.199-.349.224-.648.075-.299-.149-1.265-.466-2.41-1.487-.893-.741-1.493-1.656-1.668-1.954-.174-.299-.019-.459.13-.609.134-.135.299-.349.449-.523.149-.174.199-.299.299-.498.1-.199.05-.373-.025-.523-.075-.149-.674-1.62-.924-2.261-.243-.587-.491-.507-.674-.519-.174-.012-.373-.015-.573-.015-.2 0-.523.075-.797.373s-1.047 1.022-1.047 2.49c0 1.469 1.071 2.889 1.221 3.088.149.199 2.107 3.217 5.106 4.512.714.308 1.272.492 1.706.631.717.227 1.369.195 1.884.13.573-.073 1.774-.724 2.024-1.42.249-.697.249-1.294.174-1.42-.075-.125-.274-.199-.573-.348z"/></svg>
-                                            <span className="text-[9px] font-black uppercase">WhatsApp</span>
-                                        </a>
-                                    </div>
-                                    <button 
-                                        type="button"
-                                        onClick={async () => { 
-                                            if(confirm("Eliminare?")) { 
-                                                // NOTIFICA AL CLIENTE
-                                                const d = new Date(expandedBooking.date);
-                                                const dName = WEEKDAYS_NAME[d.getDay()];
-                                                const dStr = `${d.getDate()} ${MONTHS_NAME[d.getMonth()]}`;
-                                                await addNotification('customer', 'Appuntamento Annullato', `${expandedBooking.barberName} ha annullato il tuo appuntamento fissato per ${dName} ${dStr} alle ore ${expandedBooking.time}`, expandedBooking.customerPhone);
-
-                                                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(expandedBooking.id).delete(); 
-                                                setExpandedBooking(null); 
-                                            } 
-                                        }} 
-                                        className="w-full py-4 text-[10px] font-black uppercase text-red-500 border border-red-500/20 rounded-2xl"
-                                    >
-                                        Elimina Appuntamento
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                );
-            };
-
-            const AccountingView = () => {
-                const nowRome = useMemo(() => new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Rome"})), []);
-                const currentMonth = nowRome.getMonth();
-                const currentYear = nowRome.getFullYear();
-
-                const stats = useMemo(() => {
-                    const barberData = {};
-                    const serviceCount = {};
-                    let grandTotal = 0;
-
-                    const todayStr = nowRome.getFullYear() + '-' + String(nowRome.getMonth() + 1).padStart(2, '0') + '-' + String(nowRome.getDate()).padStart(2, '0');
-                    const curMin = nowRome.getHours() * 60 + nowRome.getMinutes();
-
-                    bookings.forEach(b => {
-                        const bDate = new Date(b.date + 'T' + b.time + ':00');
-                        if (bDate.getMonth() === currentMonth && bDate.getFullYear() === currentYear) {
-                            const endMin = timeToMinutes(b.time) + (b.duration || 30);
-                            const isToday = b.date === todayStr;
-                            const isPastDate = b.date < todayStr;
-
-                            if (isPastDate || (isToday && endMin <= curMin)) {
-                                // RECUPERO PREZZO DAL LISTINO SE ASSENTE NEL BOOKING
-                                let price = b.price;
-                                if (price === undefined || price === null || price === 0) {
-                                    const sFound = services.find(s => s.firestoreId === b.serviceId || s.id === b.serviceId);
-                                    price = sFound ? sFound.price : 0;
-                                }
-
-                                if (!barberData[b.barberName]) barberData[b.barberName] = 0;
-                                barberData[b.barberName] += price;
-
-                                if (!serviceCount[b.serviceName]) serviceCount[b.serviceName] = 0;
-                                serviceCount[b.serviceName] += 1;
-
-                                grandTotal += price;
-                            }
-                        }
-                    });
-
-                    const topServices = Object.entries(serviceCount).sort((a,b) => b[1] - a[1]);
-                    return { barberData, grandTotal, topServices };
-                }, [bookings, services, currentMonth, currentYear, nowRome]);
-
-                if (!isAccountingUnlocked) {
-                    return (
-                        <div className="fade-in max-w-md mx-auto text-center py-20">
-                            <h3 className="philia-gold font-black uppercase italic text-2xl mb-8">Area Riservata Master</h3>
-                            <div className="philia-bg p-8 rounded-[40px] border border-white/10 shadow-2xl">
-                                <p className="text-[10px] opacity-50 uppercase font-black mb-4">Inserisci PIN Rendicontazione</p>
-                                <input 
-                                    type="password" 
-                                    value={tempAccountingInput} 
-                                    onChange={(e) => setTempAccountingInput(e.target.value)}
-                                    className="w-full bg-black/40 border border-white/10 p-5 rounded-2xl text-center text-2xl font-black philia-gold outline-none mb-6"
-                                    placeholder="****"
-                                />
-                                <button 
-                                    onClick={() => {
-                                        if (tempAccountingInput === accountingPin) {
-                                            setIsAccountingUnlocked(true);
-                                        } else {
-                                            alert("PIN Errato");
-                                            setTempAccountingInput("");
-                                        }
-                                    }}
-                                    className="w-full philia-btn p-5 rounded-2xl font-black uppercase text-xs"
-                                >
-                                    Sblocca Dati
-                                </button>
-                            </div>
-                        </div>
-                    );
-                }
-
-                return (
-                    <div className="fade-in space-y-10 pb-20">
-                        <div className="flex justify-between items-center px-4">
-                            <h3 className="text-2xl font-black italic philia-gold uppercase">Rendiconto {MONTHS_NAME[currentMonth]}</h3>
-                            <button onClick={() => setIsAccountingUnlocked(false)} className="text-[10px] opacity-30 uppercase font-black">Blocca 🔒</button>
-                        </div>
-
-                        <div className="philia-bg p-10 rounded-[50px] border-2 border-[#d4af37]/30 shadow-[0_0_50px_rgba(212,175,55,0.1)] text-center">
-                            <p className="text-xs philia-gold font-black uppercase tracking-[5px] mb-2">Incasso Totale Stimato</p>
-                            <h2 className="text-6xl font-black italic">€{stats.grandTotal}</h2>
-                            <p className="text-[9px] opacity-30 mt-4 uppercase font-bold italic">*Calcolato su servizi conclusi alle ore {nowRome.getHours()}:{String(nowRome.getMinutes()).padStart(2, '0')}</p>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {Object.entries(stats.barberData).map(([name, total]) => (
-                                <div key={name} className="philia-bg p-6 rounded-[35px] border border-white/5 flex justify-between items-center">
-                                    <div>
-                                        <p className="text-[10px] opacity-40 font-black uppercase">Staff</p>
-                                        <p className="text-xl font-black italic uppercase">{name}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-[10px] philia-gold font-black uppercase">Valore</p>
-                                        <p className="text-2xl font-black">€{total}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="philia-bg p-8 rounded-[40px] border border-white/5">
-                            <h4 className="philia-gold font-black uppercase italic mb-6 border-b border-white/5 pb-4">Classifica Servizi più richiesti</h4>
-                            <div className="space-y-4">
-                                {stats.topServices.map(([name, count], index) => (
-                                    <div key={name} className="flex justify-between items-center bg-black/20 p-4 rounded-2xl">
-                                        <div className="flex items-center gap-4">
-                                            <span className="w-8 h-8 rounded-full bg-[#d4af37] text-[#332d2d] flex items-center justify-center font-black text-xs italic">{index + 1}</span>
-                                            <p className="font-bold uppercase text-sm italic">{name}</p>
-                                        </div>
-                                        <p className="font-black philia-gold">{count} <span className="text-[9px] opacity-50 ml-1">VOLTE</span></p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* PIN RENDICONTAZIONE SPOSTATO QUI */}
-                        <section className="max-w-4xl mx-auto p-8 bg-white/5 border border-white/10 rounded-[40px] mt-6">
-                            <h3 className="philia-gold font-black uppercase italic mb-6 text-center">PIN Rendicontazione</h3>
-                            <div className="flex flex-col md:flex-row gap-4 items-end">
-                                <div className="flex-1 text-left w-full">
-                                    <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white">Nuovo PIN Rendiconto</label>
-                                    <input type="text" value={newAccountingPin} onChange={(e) => setNewAccountingPin(e.target.value)} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none mt-1" placeholder="Crea PIN..." />
-                                </div>
-                                <button onClick={updateAccountingPin} className="philia-btn p-4 px-10 rounded-xl font-black uppercase text-xs text-[#332d2d] shadow-lg h-[56px] w-full md:w-auto">Salva PIN</button>
-                            </div>
-                        </section>
-                    </div>
-                );
-            };
-
-            const AppointmentCard = ({ b }) => (
-                <div className="bg-[#1a1a1a] p-5 rounded-[25px] border-l-8 relative group hover:bg-[#252525] transition-all shadow-lg text-left mb-4" style={{ borderLeftColor: barbers.find(x => x.id === b.barberId)?.color || '#d4af37' }}>
-                    <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2 text-white">
-                            <p className="philia-gold font-black text-xl italic leading-none">{b.time}</p>
-                        </div>
-                        <button type="button" onClick={async () => { 
-                            if(confirm("Eliminare?")) {
-                                // Se è lo staff che annulla (view === 'admin'), notifica il cliente
-                                if(view === 'admin') {
-                                    const d = new Date(b.date);
-                                    const dName = WEEKDAYS_NAME[d.getDay()];
-                                    const dStr = `${d.getDate()} ${MONTHS_NAME[d.getMonth()]}`;
-                                    await addNotification('customer', 'Appuntamento Annullato', `${b.barberName} ha annullato il tuo appuntamento fissato per ${dName} ${dStr} alle ore ${b.time}`, b.customerPhone);
-                                } else {
-                                    // Se è il cliente che annulla, notifica lo staff
-                                    const dObj = new Date(b.date);
-                                    const dStr = `${dObj.getDate()}/${dObj.getMonth() + 1}`;
-                                    await addNotification('staff', 'Disdetta Cliente', `Ciao, ${b.customerName} ha appena annullato ${b.serviceName} del ${dStr} alle ore ${b.time}`);
-                                }
-
-                                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete(); 
-                            }
-                        }} className="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-500/30 group-hover:text-red-500 rounded-full text-xs">✕</button>
-                    </div>
-                    <p className="font-black uppercase text-base leading-tight mb-1 text-white">{b.customerName}</p>
-                    <p className="text-[10px] opacity-40 uppercase font-bold line-clamp-1 italic mb-3 text-white">{b.serviceName} ({b.duration} min)</p>
-                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5 text-white">
-                        <div className="flex items-center gap-3">
-                            <a href={`tel:${b.customerPhone}`} className="text-green-500 text-[11px] font-black tracking-widest italic">CHIAMA</a>
-                            <a href={`https://wa.me/${b.customerPhone.toString().replace(/\D/g, '')}`} target="_blank" className="text-emerald-400 text-[11px] font-black tracking-widest italic">WA</a>
-                        </div>
-                        <span className="text-[11px] font-black opacity-40">{b.customerPhone}</span>
-                    </div>
-                </div>
-            );
-
-            const AgendaDateNavAdmin = () => (
-                <div className="flex flex-col md:flex-row justify-between items-center bg-[#332d2d] p-6 rounded-[35px] border border-white/10 shadow-2xl gap-6 mb-6">
-                    <div className="flex items-center gap-6">
-                        <button type="button" onClick={() => changeAgendaDate(-1)} className="w-12 h-12 flex items-center justify-center bg-black/20 hover:bg-[#d4af37] rounded-full border border-white/5 font-black text-xl">←</button>
-                        <div className="text-center">
-                            <input type="date" value={adminAgendaDate} onChange={(e) => setAdminAgendaDate(e.target.value)} className="bg-transparent text-[#d4af37] font-black text-2xl outline-none text-center cursor-pointer" />
-                            <p className="text-[10px] uppercase philia-gold font-bold tracking-[3px] mt-1">{new Date(adminAgendaDate + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long' })}</p>
-                        </div>
-                        <button type="button" onClick={() => changeAgendaDate(1)} className="w-12 h-12 flex items-center justify-center bg-black/20 hover:bg-[#d4af37] rounded-full border border-white/5 font-black text-xl">→</button>
-                    </div>
-                    <button type="button" onClick={() => setAdminAgendaDate(new Date().toLocaleDateString('sv-SE'))} className="px-8 py-3 bg-[#d4af37] text-[#332d2d] rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg">Oggi</button>
-                </div>
-            );
-
-            const ExceptionForm = ({ targetId, isMasterMode = false }) => (
-                <div className="philia-bg p-6 rounded-3xl border border-white/5 space-y-5">
-                    <div className="space-y-1 text-left">
-                        <label className="text-[10px] uppercase opacity-50 ml-2 font-black tracking-widest text-white">Scegli Data</label>
-                        <input type="date" value={newExc.date} onChange={(e)=>setNewExc({...newExc, date: e.target.value})} className="w-full bg-black/40 border border-white/10 p-4 rounded-xl font-bold text-white outline-none" />
-                    </div>
-                    <button type="button" onClick={()=>setNewExc({...newExc, open: !newExc.open})} className={`w-full p-4 rounded-xl font-black text-xs uppercase ${newExc.open ? 'bg-green-600 text-white' : 'bg-red-500/20 text-red-500'}`}>
-                        {newExc.open ? 'Giorno Aperto' : 'Giorno Chiuso (Ferie)'}
-                    </button>
-                    {newExc.open && (
-                        <div className="space-y-6 pt-4 border-t border-white/5">
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center px-2">
-                                    <span className="text-[10px] font-black uppercase philia-gold">AM</span>
-                                    <button type="button" onClick={()=>setNewExc({...newExc, amActive: !newExc.amActive})} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${newExc.amActive ? 'bg-[#d4af37] text-[#332d2d]' : 'bg-white/5 text-white/20'}`}>{newExc.amActive ? 'ON' : 'OFF'}</button>
-                                </div>
-                                <div className={`grid grid-cols-2 gap-3 ${newExc.amActive ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
-                                    <input type="time" value={newExc.am[0]} onChange={(e)=>setNewExc({...newExc, am:[e.target.value, newExc.am[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
-                                    <input type="time" value={newExc.am[1]} onChange={(e)=>setNewExc({...newExc, am:[newExc.am[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
-                                </div>
-                            </div>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center px-2">
-                                    <span className="text-[10px] font-black uppercase philia-gold">PM</span>
-                                    <button type="button" onClick={()=>setNewExc({...newExc, pmActive: !newExc.pmActive})} className={`px-4 py-1.5 rounded-full text-[9px] font-black ${newExc.pmActive ? 'bg-[#d4af37] text-[#332d2d]' : 'bg-white/5 text-white/20'}`}>{newExc.pmActive ? 'ON' : 'OFF'}</button>
-                                </div>
-                                <div className={`grid grid-cols-2 gap-3 ${newExc.pmActive ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
-                                    <input type="time" value={newExc.pm[0]} onChange={(e)=>setNewExc({...newExc, pm:[e.target.value, newExc.pm[1]]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
-                                    <input type="time" value={newExc.pm[1]} onChange={(e)=>setNewExc({...newExc, pm:[newExc.pm[0], e.target.value]})} className="bg-black/40 p-3 rounded-lg text-xs w-full text-white" />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    {isMasterMode ? (
-                        <div className="grid grid-cols-2 gap-3 mt-4">
-                            <button type="button" onClick={()=>addDateOverride(null, true)} className="philia-btn p-4 rounded-xl font-black uppercase text-[10px] shadow-lg text-[#332d2d]">Tutto Salone</button>
-                            <button type="button" onClick={()=>addDateOverride(targetId, false)} className="bg-white/10 p-4 rounded-xl font-black uppercase text-[10px] text-white">Solo Simone</button>
-                        </div>
-                    ) : (
-                        <button type="button" onClick={()=>addDateOverride(targetId, false)} className="w-full philia-btn p-4 rounded-xl font-black uppercase text-xs shadow-lg mt-4 text-[#332d2d]">Salva</button>
-                    )}
-                </div>
-            );
 
             const calendarDays = useMemo(() => {
-                const days = [];
-                const year = calendarViewDate.getFullYear();
-                const month = calendarViewDate.getMonth();
-                const firstDay = new Date(year, month, 1).getDay();
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
-                const offset = firstDay === 0 ? 6 : firstDay - 1;
+                const days = []; const year = calendarViewDate.getFullYear(); const month = calendarViewDate.getMonth(); const firstDay = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate(); const offset = firstDay === 0 ? 6 : firstDay - 1;
                 for (let i = 0; i < offset; i++) days.push(null);
                 for (let i = 1; i <= daysInMonth; i++) days.push(new Date(year, month, i));
                 return days;
@@ -904,7 +823,7 @@
                                 <div className="philia-bg rounded-[30px] border border-white/10 shadow-2xl overflow-hidden">
                                     <div className="p-4 bg-black/20 flex justify-between items-center border-b border-white/5">
                                         <h4 className="philia-gold font-black uppercase italic text-xs">Notifiche Staff</h4>
-                                        <button onClick={() => setShowStaffNotifications(false)} className="text-xs opacity-50">Chiudi</button>
+                                        <button onClick={() => setShowStaffNotifications(false)} className="text-xs opacity-50 text-white">Chiudi</button>
                                     </div>
                                     <div className="max-h-96 overflow-y-auto p-4 space-y-3 no-scrollbar text-white text-left">
                                         {notifications.filter(n => n.type === 'staff').sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)).map(n => (
@@ -1049,9 +968,9 @@
                                 
                                 {adminUser === 'SIMONE' ? (
                                     <div className="space-y-12 text-white">
-                                        {adminSubView === 'agenda' && <UnifiedAgenda />}
+                                        {adminSubView === 'agenda' && <UnifiedAgenda adminAgendaDate={adminAgendaDate} changeAgendaDate={changeAgendaDate} barbers={barbers} bookings={bookings} setExpandedBooking={setExpandedBooking} expandedBooking={expandedBooking} getInitials={getInitials} addNotification={addNotification} />}
                                         
-                                        {adminSubView === 'rendicontazione' && <AccountingView />}
+                                        {adminSubView === 'rendicontazione' && <AccountingView bookings={bookings} services={services} isAccountingUnlocked={isAccountingUnlocked} setIsAccountingUnlocked={setIsAccountingUnlocked} tempAccountingInput={tempAccountingInput} setTempAccountingInput={setTempAccountingInput} accountingPin={accountingPin} newAccountingPin={newAccountingPin} setNewAccountingPin={setNewAccountingPin} updateAccountingPin={updateAccountingPin} />}
                                         
                                         {adminSubView === 'catalogo' && (
                                             <div className="space-y-12 max-w-4xl mx-auto">
@@ -1106,7 +1025,7 @@
                                                             const h = settings?.openingHours?.[d] || { open: true, am: ['09:00', '13:00'], pm: ['15:30', '20:30'], amActive: true, pmActive: true };
                                                             return (
                                                                 <div key={d} className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col md:flex-row md:items-center gap-6">
-                                                                    <div className="w-32">
+                                                                    <div className="w-32 text-left">
                                                                         <p className="font-black text-sm uppercase italic text-white">{WEEKDAYS_NAME[d]}</p>
                                                                         <button 
                                                                             onClick={() => updateWeeklySchedule(d, 'open', !h.open)}
@@ -1120,7 +1039,7 @@
                                                                         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
                                                                             <div className="space-y-2">
                                                                                 <div className="flex justify-between items-center px-1">
-                                                                                    <span className="text-[9px] font-black opacity-40 uppercase">Mattina</span>
+                                                                                    <span className="text-[9px] font-black opacity-40 uppercase text-white/50">Mattina</span>
                                                                                     <button onClick={() => updateWeeklySchedule(d, 'amActive', !h.amActive)} className={`text-[8px] font-black ${h.amActive ? 'philia-gold' : 'text-white/20'}`}>{h.amActive ? 'ON' : 'OFF'}</button>
                                                                                 </div>
                                                                                 <div className={`flex gap-2 ${!h.amActive && 'opacity-20 pointer-events-none'}`}>
@@ -1130,7 +1049,7 @@
                                                                             </div>
                                                                             <div className="space-y-2">
                                                                                 <div className="flex justify-between items-center px-1">
-                                                                                    <span className="text-[9px] font-black opacity-40 uppercase">Pomeriggio</span>
+                                                                                    <span className="text-[9px] font-black opacity-40 uppercase text-white/50">Pomeriggio</span>
                                                                                     <button onClick={() => updateWeeklySchedule(d, 'pmActive', !h.pmActive)} className={`text-[8px] font-black ${h.pmActive ? 'philia-gold' : 'text-white/20'}`}>{h.pmActive ? 'ON' : 'OFF'}</button>
                                                                                 </div>
                                                                                 <div className={`flex gap-2 ${!h.pmActive && 'opacity-20 pointer-events-none'}`}>
@@ -1149,7 +1068,7 @@
                                                 <section className="max-w-4xl mx-auto p-8 bg-white/5 border border-white/10 rounded-[40px]">
                                                     <h3 className="philia-gold font-black uppercase italic mb-6 text-center">Nuova Eccezione (Ferie/Orari Speciali)</h3>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left">
-                                                        <ExceptionForm targetId={simoneBarber?.id} isMasterMode={true} />
+                                                        <ExceptionForm targetId={simoneBarber?.id} isMasterMode={true} newExc={newExc} setNewExc={setNewExc} addDateOverride={addDateOverride} />
                                                         <div className="max-h-[500px] overflow-y-auto space-y-4 no-scrollbar text-left text-white">
                                                             <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] mb-2">Eccezioni Attive</p>
                                                             {Object.entries(settings?.dateOverrides || {}).sort().map(([date, h]) => (
@@ -1222,7 +1141,17 @@
                                     </div>
                                 ) : (
                                     <div className="space-y-12">
-                                        <AgendaDateNavAdmin />
+                                        <div className="flex flex-col md:flex-row justify-between items-center bg-[#332d2d] p-6 rounded-[35px] border border-white/10 shadow-2xl gap-6 mb-6">
+                                            <div className="flex items-center gap-6">
+                                                <button type="button" onClick={() => changeAgendaDate(-1)} className="w-12 h-12 flex items-center justify-center bg-black/20 hover:bg-[#d4af37] rounded-full border border-white/5 font-black text-xl">←</button>
+                                                <div className="text-center">
+                                                    <input type="date" value={adminAgendaDate} onChange={(e) => setAdminAgendaDate(e.target.value)} className="bg-transparent text-[#d4af37] font-black text-2xl outline-none text-center cursor-pointer" />
+                                                    <p className="text-[10px] uppercase philia-gold font-bold tracking-[3px] mt-1">{new Date(adminAgendaDate + 'T00:00:00').toLocaleDateString('it-IT', { weekday: 'long' })}</p>
+                                                </div>
+                                                <button type="button" onClick={() => changeAgendaDate(1)} className="w-12 h-12 flex items-center justify-center bg-black/20 hover:bg-[#d4af37] rounded-full border border-white/5 font-black text-xl">→</button>
+                                            </div>
+                                            <button type="button" onClick={() => setAdminAgendaDate(new Date().toLocaleDateString('sv-SE'))} className="px-8 py-3 bg-[#d4af37] text-[#332d2d] rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg">Oggi</button>
+                                        </div>
                                         <div className="max-w-xl mx-auto">
                                             <div className="philia-bg rounded-[40px] border border-white/5 flex flex-col min-h-[500px] shadow-2xl overflow-hidden text-center text-white">
                                                 <div className="p-6 border-b border-white/5 bg-gradient-to-b from-black/20 to-transparent">
@@ -1230,7 +1159,17 @@
                                                     <p className="text-[10px] opacity-40 uppercase font-black mt-2">{bookings.filter(b => b.barberName === adminUser && b.date === adminAgendaDate).length} APPUNTAMENTI</p>
                                                 </div>
                                                 <div className="p-5 flex-1 overflow-y-auto no-scrollbar text-white">
-                                                    {bookings.filter(b => b.barberName === adminUser && b.date === adminAgendaDate).sort((a, b) => a.time.localeCompare(b.time)).map(b => <AppointmentCard key={b.id} b={b} />)}
+                                                    {bookings.filter(b => b.barberName === adminUser && b.date === adminAgendaDate).sort((a, b) => a.time.localeCompare(b.time)).map(b => (
+                                                        <AppointmentCard key={b.id} b={b} barbers={barbers} view={view} addNotification={addNotification} deleteBooking={async (b) => {
+                                                            if(confirm("Eliminare?")) {
+                                                                const d = new Date(b.date);
+                                                                const dName = WEEKDAYS_NAME[d.getDay()];
+                                                                const dStr = `${d.getDate()} ${MONTHS_NAME[d.getMonth()]}`;
+                                                                await addNotification('customer', 'Appuntamento Annullato', `${b.barberName} ha annullato il tuo appuntamento fissato per ${dName} ${dStr} alle ore ${b.time}`, b.customerPhone);
+                                                                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete();
+                                                            }
+                                                        }} />
+                                                    ))}
                                                 </div>
                                             </div>
 
@@ -1239,9 +1178,7 @@
                                                     <h3 className="philia-gold font-black uppercase italic text-xl">Le mie Eccezioni</h3>
                                                     <p className="text-[10px] opacity-40 uppercase font-black">Gestisci i tuoi orari o giorni di assenza</p>
                                                 </div>
-                                                  
-                                                <ExceptionForm targetId={currentCollaborator?.id} isMasterMode={false} />
-
+                                                <ExceptionForm targetId={currentCollaborator?.id} isMasterMode={false} newExc={newExc} setNewExc={setNewExc} addDateOverride={addDateOverride} />
                                                 <div className="space-y-4 text-left">
                                                     <p className="text-[10px] philia-gold font-black uppercase tracking-[3px] ml-2">Eccezioni Attive</p>
                                                     {currentCollaborator && Object.entries(currentCollaborator.dateOverrides || {}).sort().map(([date, h]) => (
@@ -1264,7 +1201,6 @@
                         {view === 'my-bookings' && (
                             <div className="fade-in max-w-xl mx-auto text-white">
                                 <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-center sm:text-left text-white">LA TUA AGENDA</h2>
-                                
                                 <div className="bg-[#332d2d] rounded-[30px] p-6 mb-8 border border-white/10 shadow-2xl text-white">
                                     <div className="flex justify-between items-center mb-6">
                                         <h3 className="text-xl font-black philia-gold uppercase italic">{MONTHS_NAME[calendarViewDate.getMonth()]} {calendarViewDate.getFullYear()}</h3>
@@ -1283,15 +1219,12 @@
                                             const todayStr = new Date().toLocaleDateString('sv-SE');
                                             const now = new Date();
                                             const currentMin = now.getHours() * 60 + now.getMinutes();
-                                            
                                             const dayBookings = bookings.filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '') && b.date === dateStr);
                                             const hasBooking = dayBookings.length > 0;
-                                            
                                             const hasActiveFuture = dayBookings.some(b => {
                                                 const endMin = timeToMinutes(b.time) + (b.duration || 30);
                                                 return (b.date > todayStr) || (b.date === todayStr && endMin > currentMin);
                                             });
-
                                             return (
                                                 <button 
                                                     key={idx} 
@@ -1310,74 +1243,56 @@
                                         })}
                                     </div>
                                 </div>
-
-                                {!clientSelectedDate && (
-                                    <p className="opacity-20 text-center py-10 uppercase font-black italic text-xs tracking-[4px]">Tocca un giorno colorato per i dettagli</p>
-                                )}
-
+                                {!clientSelectedDate && <p className="opacity-20 text-center py-10 uppercase font-black italic text-xs tracking-[4px]">Tocca un giorno colorato per i dettagli</p>}
                                 {clientSelectedDate && (
                                     <div className="fade-in philia-bg p-8 rounded-[40px] border border-white/10 shadow-2xl relative text-left">
                                         <button onClick={() => setClientSelectedDate(null)} className="absolute top-6 right-6 text-white/30 hover:text-white">✕</button>
                                         <h3 className="philia-gold font-black uppercase text-center mb-6 tracking-widest">Dettagli del {clientSelectedDate}</h3>
-                                        
                                         <div className="space-y-6">
-                                            {bookings
-                                                .filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '') && b.date === clientSelectedDate)
-                                                .map((b) => {
-                                                    const todayStr = new Date().toLocaleDateString('sv-SE');
-                                                    const now = new Date();
-                                                    const curMin = now.getHours() * 60 + now.getMinutes();
-                                                    const endMin = timeToMinutes(b.time) + (b.duration || 30);
-                                                    const isCompleted = (b.date < todayStr) || (b.date === todayStr && endMin <= curMin);
-
-                                                    return (
-                                                        <div key={b.id} className="p-6 bg-white/5 rounded-3xl border border-white/10 relative">
-                                                            <p className={`font-black text-[10px] uppercase mb-1 ${isCompleted ? 'text-white/40' : 'text-green-500'}`}>
-                                                                {isCompleted ? 'Concluso' : 'Da Effettuare'}
-                                                            </p>
-                                                            <h3 className="font-black text-2xl text-white uppercase italic leading-tight">{b.serviceName}</h3>
-                                                            <p className="text-[10px] text-white/60 font-bold uppercase mt-1 mb-4 italic">Prenotato per: <span className="text-white font-black">{b.customerName}</span></p>
-                                                            
-                                                            <div className="grid grid-cols-2 gap-3 mb-4">
-                                                                <div className="p-3 bg-black/20 rounded-2xl border border-white/5">
-                                                                    <p className="text-[8px] opacity-40 uppercase font-black mb-1">Orario</p>
-                                                                    <p className="font-black philia-gold text-lg italic">{b.time}</p>
+                                            {bookings.filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '') && b.date === clientSelectedDate).map((b) => {
+                                                const todayStr = new Date().toLocaleDateString('sv-SE');
+                                                const now = new Date(); const curMin = now.getHours() * 60 + now.getMinutes(); const endMin = timeToMinutes(b.time) + (b.duration || 30);
+                                                const isCompleted = (b.date < todayStr) || (b.date === todayStr && endMin <= curMin);
+                                                return (
+                                                    <div key={b.id} className="p-6 bg-white/5 rounded-3xl border border-white/10 relative">
+                                                        <p className={`font-black text-[10px] uppercase mb-1 ${isCompleted ? 'text-white/40' : 'text-green-500'}`}>
+                                                            {isCompleted ? 'Concluso' : 'Da Effettuare'}
+                                                        </p>
+                                                        <h3 className="font-black text-2xl text-white uppercase italic leading-tight">{b.serviceName}</h3>
+                                                        <p className="text-[10px] text-white/60 font-bold uppercase mt-1 mb-4 italic">Prenotato per: <span className="text-white font-black">{b.customerName}</span></p>
+                                                        <div className="grid grid-cols-2 gap-3 mb-4">
+                                                            <div className="p-3 bg-black/20 rounded-2xl border border-white/5">
+                                                                <p className="text-[8px] opacity-40 uppercase font-black mb-1">Orario</p>
+                                                                <p className="font-black philia-gold text-lg italic">{b.time}</p>
+                                                            </div>
+                                                            <div className="p-3 bg-black/20 rounded-2xl border border-white/5 flex items-center justify-between">
+                                                                <div>
+                                                                    <p className="text-[8px] opacity-40 uppercase font-black mb-1">Barbiere</p>
+                                                                    <p className="font-bold text-white text-xs uppercase italic">{b.barberName}</p>
                                                                 </div>
-                                                                <div className="p-3 bg-black/20 rounded-2xl border border-white/5 flex items-center justify-between">
-                                                                    <div>
-                                                                        <p className="text-[8px] opacity-40 uppercase font-black mb-1">Barbiere</p>
-                                                                        <p className="font-bold text-white text-xs uppercase italic">{b.barberName}</p>
-                                                                    </div>
-                                                                    <div className="w-6 h-6 rounded-full flex items-center justify-center font-black text-[8px] border border-white/20" style={{ backgroundColor: barbers.find(x => x.id === b.barberId)?.color || '#d4af37', color: '#1a1a1a' }}>
-                                                                        {b.barberName.substring(0,2).toUpperCase()}
-                                                                    </div>
+                                                                <div className="w-6 h-6 rounded-full flex items-center justify-center font-black text-[8px] border border-white/20" style={{ backgroundColor: barbers.find(x => x.id === b.barberId)?.color || '#d4af37', color: '#1a1a1a' }}>
+                                                                    {b.barberName.substring(0,2).toUpperCase()}
                                                                 </div>
                                                             </div>
-
-                                                            {!isCompleted && (
-                                                                <button 
-                                                                    type="button" 
-                                                                    onClick={async () => {
-                                                                        if(confirm("Vuoi davvero annullare questo appuntamento?")) {
-                                                                            // Notifica allo Staff
-                                                                            const dObj = new Date(b.date);
-                                                                            const dStr = `${dObj.getDate()}/${dObj.getMonth() + 1}`;
-                                                                            await addNotification('staff', 'Disdetta Cliente', `Ciao, ${b.customerName} ha appena annullato ${b.serviceName} del ${dStr} alle ore ${b.time}`);
-                                                                            
-                                                                            await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete();
-                                                                        }
-                                                                    }} 
-                                                                    className="w-full py-3 text-[9px] font-black uppercase text-red-500/50 border border-red-500/20 rounded-xl hover:bg-red-500/5 hover:text-red-500 transition-all"
-                                                                >
-                                                                    Annulla questo Appuntamento
-                                                                </button>
-                                                            )}
                                                         </div>
-                                                    );
-                                                })}
-                                            {bookings.filter(b => b.customerPhone?.toString().replace(/\s+/g, '') === clientPhone?.toString().replace(/\s+/g, '') && b.date === clientSelectedDate).length === 0 && (
-                                                <p className="text-center opacity-40 text-xs italic py-4">Nessun appuntamento trovato per oggi.</p>
-                                            )}
+                                                        {!isCompleted && (
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={async () => {
+                                                                    if(confirm("Vuoi davvero annullare questo appuntamento?")) {
+                                                                        const dObj = new Date(b.date); const dStr = `${dObj.getDate()}/${dObj.getMonth() + 1}`;
+                                                                        await addNotification('staff', 'Disdetta Cliente', `Ciao, ${b.customerName} ha appena annullato ${b.serviceName} del ${dStr} alle ore ${b.time}`);
+                                                                        await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('bookings').doc(b.id).delete();
+                                                                    }
+                                                                }} 
+                                                                className="w-full py-3 text-[9px] font-black uppercase text-red-500/50 border border-red-500/20 rounded-xl hover:bg-red-500/5 hover:text-red-500 transition-all"
+                                                            >
+                                                                Annulla questo Appuntamento
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
@@ -1412,11 +1327,11 @@
                             <div className="fade-in max-w-xl mx-auto text-white">
                                 <h2 className="text-2xl font-black mb-8 border-l-4 border-[#d4af37] pl-4 italic uppercase tracking-widest text-white">IL TUO PROFILO</h2>
                                 <div className="philia-bg p-8 rounded-[40px] border border-white/10 shadow-2xl space-y-8">
-                                    <div className="space-y-2">
+                                    <div className="space-y-2 text-left">
                                         <label className="text-[10px] uppercase opacity-30 font-black tracking-[3px] ml-2">Nome e Cognome</label>
                                         <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} onBlur={saveIdentity} className="w-full bg-black/40 border border-white/5 p-5 rounded-2xl text-xl font-bold text-white outline-none" />
                                     </div>
-                                    <div className="space-y-2">
+                                    <div className="space-y-2 text-left">
                                         <label className="text-[10px] uppercase opacity-30 font-black tracking-[3px] ml-2">Cellulare</label>
                                         <div className="w-full bg-black/20 p-5 rounded-2xl text-xl font-black text-[#d4af37] opacity-60">{clientPhone}</div>
                                     </div>
