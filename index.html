@@ -1,116 +1,1512 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Philia - Conferma Prenotazione</title>
-    <style>
-        /* COLORE DI SFONDO COORDINATO AL LOGO */
-        body { 
-            background-color: #332d2d; 
-            color: #d4af37; 
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
-            text-align: center; 
-            padding: 40px 20px; 
-            margin: 0; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            min-height: 100vh; 
-            justify-content: center; 
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Philia — Men Hair Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cotto: #C75A2E;
+    --cotto-deep: #9c4521;
+    --crema: #F7F1E6;
+    --crema-dim: #EDE4D2;
+    --ink: #1A1410;
+    --ink-soft: #3D3835;
+    --senape: #E8A93C;
+    --senape-deep: #c98a23;
+    --line: rgba(26,20,16,0.12);
+    --line-on-dark: rgba(247,241,230,0.18);
+    --display: 'Fraunces', serif;
+    --body: 'Manrope', sans-serif;
+  }
 
-        .logo { 
-            max-width: 220px; 
-            height: auto; 
-            margin-bottom: 30px; 
-        }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family: var(--body);
+    background: var(--crema);
+    color: var(--ink);
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  img{max-width:100%;display:block;}
+  a{color:inherit;text-decoration:none;}
 
-        h1 { font-weight: 300; letter-spacing: 3px; text-transform: uppercase; font-size: 1.1em; }
-        
-        .loader { border: 2px solid #444; border-top: 2px solid #d4af37; border-radius: 50%; width: 25px; height: 25px; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        #status { font-size: 0.9em; letter-spacing: 1px; color: #e0e0e0; margin-bottom: 20px; text-transform: uppercase; }
-        
-        .btn { 
-            display: none; 
-            padding: 16px 32px; 
-            background: #d4af37; 
-            color: #332d2d; 
-            text-decoration: none; 
-            border-radius: 4px; 
-            font-weight: bold; 
-            margin: 12px 0; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            width: 240px; 
-            font-size: 0.85em; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; scroll-behavior:auto !important;}
+  }
 
-        /* STILE PER IL QR CODE (PC) */
-        #qr-container { 
-            display: none; 
-            margin-top: 20px; 
-            background: white; 
-            padding: 15px; 
-            border-radius: 10px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
-        #qr-code { width: 180px; height: 180px; }
+  :focus-visible{
+    outline: 2px solid var(--cotto);
+    outline-offset: 3px;
+  }
 
-        #qr-msg { display: none; margin-top: 20px; color: #d4af37; font-size: 0.85em; line-height: 1.6; max-width: 350px; border-top: 1px solid #444; padding-top: 20px; }
-    </style>
+  .wrap{
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  /* ============ NAV ============ */
+  header{
+    position: fixed;
+    top:0; left:0; right:0;
+    z-index: 100;
+    background: rgba(247,241,230,0.88);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+    transition: background .3s ease;
+  }
+  nav{
+    max-width:1180px;
+    margin:0 auto;
+    padding: 18px 32px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .logo-mark{
+    font-family: var(--display);
+    font-weight:600;
+    font-size: 1.35rem;
+    letter-spacing: 0.01em;
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  .logo-mark span{
+    font-family: var(--body);
+    font-size:0.55rem;
+    font-weight:700;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color: var(--cotto-deep);
+    align-self:center;
+  }
+  .nav-links{
+    display:flex;
+    gap:32px;
+    font-size:0.85rem;
+    font-weight:600;
+    letter-spacing:0.02em;
+  }
+  .nav-links a{
+    position:relative;
+    padding:4px 0;
+    transition: color .2s;
+  }
+  .nav-links a::after{
+    content:'';
+    position:absolute;
+    left:0; bottom:0;
+    width:0; height:2px;
+    background: var(--cotto);
+    transition: width .25s ease;
+  }
+  .nav-links a:hover::after{width:100%;}
+  .nav-cta{
+    background: var(--ink);
+    color: var(--crema);
+    padding: 11px 22px;
+    border-radius: 100px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing:0.02em;
+    transition: background .25s ease, transform .2s ease;
+  }
+  .nav-cta:hover{ background: var(--cotto); transform: translateY(-1px); }
+  .nav-toggle{ display:none; }
+
+  /* ============ HERO ============ */
+  .hero{
+    position:relative;
+    min-height: 100vh;
+    display:flex;
+    align-items:center;
+    padding: 140px 0 80px;
+    overflow:hidden;
+    background: var(--crema);
+  }
+  .hero::before{
+    content:'';
+    position:absolute;
+    top:-10%; right:-18%;
+    width:70vw; height:70vw;
+    max-width:980px; max-height:980px;
+    border-radius: 50% 50% 48% 52% / 55% 50% 50% 45%;
+    background: radial-gradient(circle at 38% 30%, var(--senape) 0%, var(--cotto) 55%, var(--cotto-deep) 100%);
+    opacity:0.95;
+    z-index:0;
+  }
+  .hero-grid{
+    position:relative;
+    z-index:2;
+    display:grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 48px;
+    align-items:center;
+    width:100%;
+  }
+  .eyebrow{
+    font-size:0.78rem;
+    font-weight:700;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color: var(--cotto-deep);
+    margin-bottom:22px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .eyebrow::before{
+    content:'';
+    width:28px; height:1px;
+    background: var(--cotto-deep);
+  }
+  .hero h1{
+    font-family: var(--display);
+    font-weight:600;
+    font-size: clamp(2.8rem, 6vw, 5.2rem);
+    line-height: 0.98;
+    letter-spacing:-0.01em;
+    color: var(--ink);
+  }
+  .hero h1 em{
+    font-style:italic;
+    font-weight:500;
+    color: var(--cotto);
+  }
+  .hero p.lead{
+    margin-top:26px;
+    font-size:1.08rem;
+    line-height:1.65;
+    color: var(--ink-soft);
+    max-width: 460px;
+  }
+  .hero-actions{
+    margin-top:38px;
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    padding: 16px 30px;
+    border-radius:100px;
+    font-weight:700;
+    font-size:0.92rem;
+    letter-spacing:0.01em;
+    transition: transform .22s ease, box-shadow .22s ease, background .22s ease;
+    cursor:pointer;
+    border:none;
+  }
+  .btn-primary{
+    background: var(--ink);
+    color: var(--crema);
+  }
+  .btn-primary:hover{
+    background: var(--cotto);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(199,90,46,0.35);
+  }
+  .btn-ghost{
+    background: transparent;
+    color: var(--ink);
+    border:1.5px solid var(--ink);
+  }
+  .btn-ghost:hover{
+    background: var(--ink);
+    color: var(--crema);
+    transform: translateY(-2px);
+  }
+  .btn-arrow{ transition: transform .22s ease; }
+  .btn:hover .btn-arrow{ transform: translateX(3px); }
+
+  .hero-photo-frame{
+    position:relative;
+    z-index:2;
+  }
+  .arch-photo{
+    position:relative;
+    width:100%;
+    aspect-ratio: 3/4;
+    border-radius: 50% 50% 14px 14px / 38% 38% 14px 14px;
+    overflow:hidden;
+    box-shadow: 0 30px 60px -20px rgba(26,20,16,0.4);
+    border: 6px solid var(--crema);
+  }
+  .arch-photo img{
+    width:100%; height:100%;
+    object-fit:cover;
+    object-position: center 30%;
+  }
+  .floating-tag{
+    position:absolute;
+    bottom: -18px;
+    left: -28px;
+    background: var(--ink);
+    color: var(--crema);
+    padding: 16px 22px;
+    border-radius: 16px;
+    box-shadow: 0 16px 32px rgba(0,0,0,0.25);
+    z-index:3;
+  }
+  .floating-tag .num{
+    font-family: var(--display);
+    font-size:1.6rem;
+    font-weight:600;
+    color: var(--senape);
+  }
+  .floating-tag .label{
+    font-size:0.72rem;
+    color: var(--crema-dim);
+    letter-spacing:0.03em;
+  }
+
+  .hero-scroll{
+    position:absolute;
+    bottom: 28px;
+    left: 32px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:0.72rem;
+    font-weight:700;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color: var(--ink-soft);
+    z-index:3;
+  }
+  .hero-scroll .line{
+    width:1px; height:36px;
+    background: var(--ink-soft);
+    position:relative;
+    overflow:hidden;
+  }
+  .hero-scroll .line::after{
+    content:'';
+    position:absolute;
+    top:0; left:0; width:100%; height:40%;
+    background: var(--cotto);
+    animation: scrollPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes scrollPulse{
+    0%{ top:-40%; }
+    100%{ top:100%; }
+  }
+
+  /* ============ MARQUEE STRIP ============ */
+  .strip{
+    background: var(--ink);
+    color: var(--crema-dim);
+    padding: 16px 0;
+    overflow:hidden;
+    white-space:nowrap;
+    position:relative;
+  }
+  .strip-track{
+    display:inline-flex;
+    gap:0;
+    animation: marquee 32s linear infinite;
+  }
+  .strip-track span{
+    font-family: var(--display);
+    font-style:italic;
+    font-size:1.05rem;
+    padding: 0 28px;
+    border-right: 1px solid var(--line-on-dark);
+  }
+  @keyframes marquee{
+    from{ transform: translateX(0); }
+    to{ transform: translateX(-50%); }
+  }
+
+  /* ============ SECTION SHARED ============ */
+  section{ padding: 110px 0; position:relative; }
+  .section-head{
+    max-width: 620px;
+    margin-bottom: 64px;
+  }
+  .section-head .eyebrow{ margin-bottom:18px; }
+  .section-head h2{
+    font-family: var(--display);
+    font-weight:600;
+    font-size: clamp(2.1rem, 4vw, 3.1rem);
+    line-height:1.08;
+    letter-spacing:-0.01em;
+  }
+  .section-head h2 em{ font-style:italic; font-weight:500; color:var(--cotto); }
+  .section-head p{
+    margin-top:18px;
+    color: var(--ink-soft);
+    font-size:1.02rem;
+    line-height:1.6;
+  }
+  .center{ text-align:center; margin-left:auto; margin-right:auto; }
+
+  /* ============ ABOUT / ARCH MOTIF ============ */
+  .about{ background: var(--crema); }
+  .about-grid{
+    display:grid;
+    grid-template-columns: 0.85fr 1.15fr;
+    gap: 60px;
+    align-items:center;
+  }
+  .arch-frame{
+    position:relative;
+    border-radius: 50% 50% 0 0 / 70% 70% 0 0;
+    overflow:hidden;
+    aspect-ratio: 4/5;
+    border: 1px solid var(--line);
+  }
+  .arch-frame img{ width:100%; height:100%; object-fit:cover; }
+  .about-copy p{
+    font-size:1.06rem;
+    line-height:1.75;
+    color: var(--ink-soft);
+    margin-bottom:20px;
+  }
+  .about-copy p strong{ color:var(--ink); font-weight:700; }
+  .stat-row{
+    display:flex;
+    gap:40px;
+    margin-top:36px;
+    flex-wrap:wrap;
+  }
+  .stat{ }
+  .stat .num{
+    font-family: var(--display);
+    font-size: 2.4rem;
+    font-weight:600;
+    color: var(--cotto);
+    line-height:1;
+  }
+  .stat .lbl{
+    font-size:0.78rem;
+    color: var(--ink-soft);
+    letter-spacing:0.02em;
+    margin-top:6px;
+  }
+
+  /* ============ SERVICES ============ */
+  .services{ background: var(--ink); color: var(--crema); }
+  .services .section-head p{ color: var(--crema-dim); }
+  .services .eyebrow{ color: var(--senape); }
+  .services .eyebrow::before{ background: var(--senape); }
+  .service-list{
+    display:flex;
+    flex-direction:column;
+  }
+  .service-row{
+    display:grid;
+    grid-template-columns: 1.4fr 0.6fr 0.5fr auto;
+    gap:24px;
+    align-items:center;
+    padding: 30px 8px;
+    border-top: 1px solid var(--line-on-dark);
+    transition: background .25s ease, padding-left .25s ease;
+  }
+  .service-row:last-child{ border-bottom: 1px solid var(--line-on-dark); }
+  .service-row:hover{
+    background: rgba(247,241,230,0.04);
+    padding-left: 20px;
+  }
+  .service-name{
+    font-family: var(--display);
+    font-size: 1.35rem;
+    font-weight:500;
+  }
+  .service-desc{
+    font-size:0.88rem;
+    color: var(--crema-dim);
+    line-height:1.5;
+  }
+  .service-time{
+    font-size:0.82rem;
+    color: var(--senape);
+    font-weight:700;
+    letter-spacing:0.04em;
+  }
+  .service-price{
+    font-family: var(--display);
+    font-size:1.4rem;
+    font-weight:600;
+    text-align:right;
+    white-space:nowrap;
+  }
+  .service-note{
+    margin-top: 28px;
+    font-size:0.85rem;
+    color: var(--crema-dim);
+    font-style:italic;
+  }
+
+  /* ============ TEAM ============ */
+  .team{ background: var(--crema-dim); }
+  .team-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+  .team-card{
+    background: var(--crema);
+    border-radius: 24px;
+    padding: 36px 30px;
+    border: 1px solid var(--line);
+    transition: transform .28s ease, box-shadow .28s ease;
+    position:relative;
+  }
+  .team-card:hover{
+    transform: translateY(-6px);
+    box-shadow: 0 24px 48px -16px rgba(26,20,16,0.18);
+  }
+  .team-avatar{
+    width:64px; height:64px;
+    border-radius:50%;
+    background: linear-gradient(135deg, var(--senape), var(--cotto));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family: var(--display);
+    font-size:1.5rem;
+    font-weight:600;
+    color: var(--crema);
+    margin-bottom:24px;
+  }
+  .team-card h3{
+    font-family: var(--display);
+    font-size:1.4rem;
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  .team-role{
+    font-size:0.78rem;
+    text-transform:uppercase;
+    letter-spacing:0.1em;
+    color: var(--cotto-deep);
+    font-weight:700;
+    margin-bottom:16px;
+  }
+  .team-card p.bio{
+    font-size:0.9rem;
+    line-height:1.55;
+    color: var(--ink-soft);
+    margin-bottom:24px;
+    min-height:84px;
+  }
+  .book-link{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    font-size:0.85rem;
+    font-weight:700;
+    color: var(--ink);
+    padding-bottom:2px;
+    border-bottom: 2px solid var(--senape);
+    transition: color .2s, border-color .2s, gap .2s;
+  }
+  .book-link:hover{ color: var(--cotto); border-color: var(--cotto); gap:12px; }
+
+  /* ============ BOOKING ============ */
+  .booking{
+    background: var(--cotto);
+    color: var(--crema);
+    position:relative;
+    overflow:hidden;
+  }
+  .booking::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background-image: radial-gradient(circle, rgba(247,241,230,0.10) 1.5px, transparent 1.5px);
+    background-size: 26px 26px;
+    opacity:0.5;
+  }
+  .booking-inner{ position:relative; z-index:2; }
+  .booking .section-head{ max-width:640px; }
+  .booking .eyebrow{ color: var(--ink); }
+  .booking .eyebrow::before{ background: var(--ink); }
+  .booking .section-head h2{ color: var(--ink); }
+  .booking .section-head h2 em{ color: var(--crema); }
+  .booking .section-head p{ color: rgba(26,20,16,0.78); }
+
+  .booking-cards{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 56px;
+  }
+  .booking-card{
+    background: var(--crema);
+    border-radius: 22px;
+    padding: 32px 28px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+  .booking-card .who{
+    font-family: var(--display);
+    font-size:1.5rem;
+    font-weight:600;
+    color: var(--ink);
+  }
+  .booking-card .what{
+    font-size:0.86rem;
+    color: var(--ink-soft);
+    line-height:1.5;
+  }
+  .booking-card .btn{
+    margin-top:auto;
+    justify-content:center;
+    width:100%;
+    background: var(--ink);
+    color: var(--crema);
+  }
+  .booking-card .btn:hover{ background: var(--cotto-deep); }
+
+  .apps-row{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+    align-items:center;
+    background: rgba(26,20,16,0.12);
+    border: 1px solid rgba(26,20,16,0.18);
+    border-radius: 20px;
+    padding: 28px 32px;
+  }
+  .apps-text{ flex:1; min-width:220px; }
+  .apps-text h3{
+    font-family: var(--display);
+    font-size:1.3rem;
+    font-weight:600;
+    color: var(--ink);
+    margin-bottom:6px;
+  }
+  .apps-text p{ font-size:0.88rem; color: rgba(26,20,16,0.78); }
+  .app-buttons{ display:flex; gap:14px; flex-wrap:wrap; }
+  .app-btn{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background: var(--ink);
+    color: var(--crema);
+    padding: 12px 20px;
+    border-radius: 14px;
+    font-size:0.85rem;
+    font-weight:700;
+    transition: transform .2s ease, background .2s ease;
+  }
+  .app-btn:hover{ transform: translateY(-2px); background: #000; }
+  .app-btn svg{ width:20px; height:20px; flex-shrink:0; }
+
+  /* ============ GALLERY ============ */
+  .gallery{ background: var(--crema); }
+  .gallery-grid{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: 200px 200px;
+    gap: 16px;
+  }
+  .gallery-grid figure{
+    overflow:hidden;
+    border-radius: 18px;
+    position:relative;
+  }
+  .gallery-grid figure img{
+    width:100%; height:100%;
+    object-fit:cover;
+    transition: transform .5s ease;
+  }
+  .gallery-grid figure:hover img{ transform: scale(1.07); }
+  .g1{ grid-column: 1 / 3; grid-row: 1 / 3; }
+  .g2{ grid-column: 3 / 5; grid-row: 1 / 2; }
+  .g3{ grid-column: 3 / 4; grid-row: 2 / 3; }
+  .g4{ grid-column: 4 / 5; grid-row: 2 / 3; }
+
+  /* ============ SOCIAL ============ */
+  .social{ background: var(--ink); color: var(--crema); }
+  .social-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+  }
+  .social-card{
+    border: 1px solid var(--line-on-dark);
+    border-radius: 22px;
+    padding: 36px 30px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+    transition: border-color .25s ease, transform .25s ease;
+  }
+  .social-card:hover{ border-color: var(--senape); transform: translateY(-4px); }
+  .social-icon{
+    width:48px; height:48px;
+    border-radius:50%;
+    background: var(--crema);
+    color: var(--ink);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .social-icon svg{ width:22px; height:22px; }
+  .social-card h3{ font-family:var(--display); font-size:1.25rem; font-weight:600; }
+  .social-card p{ font-size:0.88rem; color: var(--crema-dim); line-height:1.5; flex:1; }
+  .social-card .book-link{ color: var(--crema); border-color: var(--senape); }
+  .social-card .book-link:hover{ color: var(--senape); }
+
+  /* ============ MAP/VISIT ============ */
+  .visit{ background: var(--crema-dim); }
+  .visit-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items:center;
+  }
+  .visit-photo{
+    border-radius: 24px;
+    overflow:hidden;
+    aspect-ratio: 4/3;
+  }
+  .visit-photo img{ width:100%; height:100%; object-fit:cover; }
+  .visit-info dl{
+    display:grid;
+    grid-template-columns: auto 1fr;
+    gap: 18px 28px;
+    margin-top:8px;
+  }
+  .visit-info dt{
+    font-size:0.78rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color: var(--cotto-deep);
+    padding-top:2px;
+  }
+  .visit-info dd{
+    font-size:1rem;
+    color: var(--ink);
+    line-height:1.6;
+  }
+  .visit-info .btn{ margin-top:32px; }
+  .map-embed{
+    margin-top: 56px;
+    border-radius: 24px;
+    overflow:hidden;
+    border: 1px solid var(--line);
+    box-shadow: 0 16px 40px -16px rgba(26,20,16,0.16);
+    position: relative;
+    background: var(--crema-dim);
+  }
+  .map-embed iframe{
+    display:block;
+    filter: sepia(0.12) saturate(0.85) brightness(1.01);
+  }
+  .map-card{
+    position:absolute;
+    top: 20px;
+    left: 20px;
+    width: min(340px, calc(100% - 40px));
+    background: var(--crema);
+    color: var(--ink);
+    border-radius: 18px;
+    padding: 20px 22px;
+    box-shadow: 0 18px 40px rgba(26,20,16,0.22);
+    border: 1px solid var(--line);
+    z-index: 5;
+  }
+  .map-card-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:14px;
+  }
+  .map-card-top h4{
+    font-family: var(--display);
+    font-size:1.15rem;
+    font-weight:600;
+    margin-bottom:8px;
+    color: var(--ink);
+  }
+  .map-card-top p{
+    font-size:0.84rem;
+    line-height:1.45;
+    color: var(--ink-soft);
+  }
+  .map-card-actions{
+    display:flex;
+    gap:8px;
+    flex-shrink:0;
+  }
+  .map-card-actions a{
+    width:36px; height:36px;
+    border-radius:50%;
+    background: var(--crema-dim);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color: var(--ink);
+    transition: background .2s ease, color .2s ease, transform .2s ease;
+  }
+  .map-card-actions a:hover{ background: var(--cotto); color: var(--crema); transform: translateY(-1px); }
+  .map-card-rating{
+    margin-top:14px;
+    padding-top:14px;
+    border-top: 1px solid var(--line);
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .map-card-rating .stars{
+    color: var(--senape-deep);
+    font-size:0.95rem;
+    letter-spacing:1px;
+  }
+  .map-card-rating .rating-text{
+    font-size:0.82rem;
+    color: var(--ink-soft);
+  }
+  @media (max-width: 560px){
+    .map-card{ left:14px; top:14px; padding:16px 18px; }
+    .map-card-top h4{ font-size:1.02rem; }
+  }
+
+  /* ============ FOOTER ============ */
+  footer{
+    background: var(--ink);
+    color: var(--crema-dim);
+    padding: 70px 0 30px;
+  }
+  .footer-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap: 40px;
+    flex-wrap:wrap;
+    padding-bottom: 48px;
+    border-bottom: 1px solid var(--line-on-dark);
+  }
+  .footer-logo{
+    font-family: var(--display);
+    font-size:1.6rem;
+    font-weight:600;
+    color: var(--crema);
+  }
+  .footer-logo span{
+    display:block;
+    font-family: var(--body);
+    font-size:0.7rem;
+    letter-spacing:0.16em;
+    color: var(--senape);
+    margin-top:6px;
+    font-weight:700;
+  }
+  .footer-cols{
+    display:flex;
+    gap: 64px;
+    flex-wrap:wrap;
+  }
+  .footer-col h4{
+    font-size:0.75rem;
+    text-transform:uppercase;
+    letter-spacing:0.1em;
+    color: var(--senape);
+    margin-bottom:16px;
+    font-weight:700;
+  }
+  .footer-col a, .footer-col p{
+    display:block;
+    font-size:0.9rem;
+    color: var(--crema-dim);
+    margin-bottom:10px;
+    transition: color .2s;
+  }
+  .footer-col a:hover{ color: var(--crema); }
+  .footer-bottom{
+    padding-top: 28px;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    font-size:0.78rem;
+    color: rgba(247,241,230,0.5);
+  }
+
+  /* ============ MOBILE NAV ============ */
+  .mobile-toggle{
+    display:none;
+    flex-direction:column;
+    gap:5px;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:8px;
+  }
+  .mobile-toggle span{
+    width:22px; height:2px;
+    background: var(--ink);
+    border-radius:2px;
+    transition: transform .25s ease, opacity .25s ease;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 980px){
+    .hero-grid{ grid-template-columns:1fr; }
+    .hero-photo-frame{ max-width:380px; margin:0 auto; order:-1; }
+    .hero{ padding-top:120px; }
+    .about-grid, .visit-grid{ grid-template-columns:1fr; gap:40px; }
+    .arch-frame{ max-width:420px; margin:0 auto; }
+    .team-grid{ grid-template-columns:1fr; }
+    .booking-cards{ grid-template-columns:1fr; }
+    .social-grid{ grid-template-columns:1fr; }
+    .gallery-grid{ grid-template-columns: repeat(2,1fr); grid-template-rows:repeat(3,160px); }
+    .g1{ grid-column:1/3; grid-row:1/2; }
+    .g2{ grid-column:1/2; grid-row:2/3; }
+    .g3{ grid-column:2/3; grid-row:2/3; }
+    .g4{ grid-column:1/3; grid-row:3/4; }
+  }
+
+  @media (max-width: 760px){
+    .nav-links{ display:none; }
+    .mobile-toggle{ display:flex; }
+    .nav-cta{ display:none; }
+    .wrap{ padding:0 22px; }
+    section{ padding: 72px 0; }
+    .hero{ padding-top:110px; min-height:auto; padding-bottom:60px; }
+    .hero::before{ width:120vw; right:-40%; top:-20%; }
+    .service-row{ grid-template-columns: 1fr; gap:6px; text-align:left; }
+    .service-price{ text-align:left; margin-top:8px; }
+    .footer-top{ flex-direction:column; }
+    .apps-row{ flex-direction:column; align-items:flex-start; }
+  }
+
+  /* mobile nav drawer */
+  .mobile-drawer{
+    position:fixed;
+    top:0; right:0;
+    height:100vh;
+    width:78vw;
+    max-width:320px;
+    background: var(--ink);
+    color:var(--crema);
+    z-index:200;
+    transform: translateX(100%);
+    transition: transform .35s ease;
+    padding: 100px 32px 32px;
+    display:flex;
+    flex-direction:column;
+    gap:28px;
+  }
+  .mobile-drawer.open{ transform: translateX(0); }
+  .mobile-drawer a{
+    font-family: var(--display);
+    font-size:1.4rem;
+    font-weight:500;
+  }
+  .mobile-drawer .btn{ margin-top:12px; }
+  .drawer-overlay{
+    position:fixed; inset:0;
+    background: rgba(26,20,16,0.5);
+    z-index:150;
+    opacity:0;
+    visibility:hidden;
+    transition: opacity .3s ease;
+  }
+  .drawer-overlay.open{ opacity:1; visibility:visible; }
+
+  /* reveal on scroll */
+  .reveal{
+    opacity:0;
+    transform: translateY(28px);
+    transition: opacity .7s ease, transform .7s ease;
+  }
+  .reveal.in{ opacity:1; transform:none; }
+
+  /* ============ WHATSAPP FLOATING BUTTON ============ */
+  .whatsapp-float{
+    position: fixed;
+    bottom: 26px;
+    right: 26px;
+    z-index: 300;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background: #25D366;
+    color: #fff;
+    padding: 14px 20px 14px 16px;
+    border-radius: 100px;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+    font-weight:700;
+    font-size:0.88rem;
+    transition: transform .22s ease, box-shadow .22s ease;
+  }
+  .whatsapp-float:hover{
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 14px 34px rgba(0,0,0,0.32);
+  }
+  .whatsapp-float svg{ width:26px; height:26px; flex-shrink:0; }
+  .whatsapp-float .wa-label{ white-space:nowrap; }
+  .whatsapp-float .wa-pulse{
+    position:absolute;
+    inset:0;
+    border-radius:100px;
+    background:#25D366;
+    opacity:0.55;
+    animation: waPulse 2.4s ease-out infinite;
+    z-index:-1;
+  }
+  @keyframes waPulse{
+    0%{ transform: scale(1); opacity:0.45; }
+    100%{ transform: scale(1.35); opacity:0; }
+  }
+  @media (max-width: 560px){
+    .whatsapp-float{ bottom:18px; right:18px; padding:14px; }
+    .whatsapp-float .wa-label{ display:none; }
+  }
+
+  /* ============ COOKIE BANNER ============ */
+  .cookie-overlay{
+    position: fixed;
+    inset: 0;
+    background: rgba(26,20,16,0.45);
+    backdrop-filter: blur(4px);
+    z-index: 400;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    padding: 24px;
+    opacity:0;
+    visibility:hidden;
+    transition: opacity .35s ease, visibility .35s ease;
+  }
+  .cookie-overlay.show{ opacity:1; visibility:visible; }
+  .cookie-banner{
+    background: var(--crema);
+    color: var(--ink);
+    max-width: 560px;
+    width:100%;
+    border-radius: 22px;
+    padding: 34px 36px 30px;
+    box-shadow: 0 30px 70px rgba(26,20,16,0.35);
+    transform: translateY(24px);
+    transition: transform .4s ease;
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--cotto);
+  }
+  .cookie-overlay.show .cookie-banner{ transform: translateY(0); }
+  .cookie-tag{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:0.72rem;
+    font-weight:800;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color: var(--cotto-deep);
+    margin-bottom:18px;
+  }
+  .cookie-tag .emoji{ font-size:1.1rem; }
+  .cookie-banner h3{
+    font-family: var(--display);
+    font-weight:600;
+    font-size:1.6rem;
+    letter-spacing:0.01em;
+    margin-bottom:14px;
+    color: var(--ink);
+  }
+  .cookie-banner h3 em{ font-style:italic; font-weight:500; color: var(--cotto); }
+  .cookie-banner p{
+    font-size:0.92rem;
+    line-height:1.6;
+    color: var(--ink-soft);
+    margin-bottom:24px;
+  }
+  .cookie-banner p strong{ color: var(--ink); }
+  .cookie-banner a.privacy-link{
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--senape-deep);
+  }
+  .cookie-actions{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+  .cookie-btn{
+    flex:1;
+    min-width:160px;
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-weight:700;
+    font-size:0.88rem;
+    letter-spacing:0.01em;
+    cursor:pointer;
+    transition: transform .2s ease, background .2s ease, opacity .2s ease;
+    text-align:center;
+    border: none;
+  }
+  .cookie-btn-accept{
+    background: var(--cotto);
+    color: var(--crema);
+  }
+  .cookie-btn-accept:hover{ background: var(--cotto-deep); transform: translateY(-2px); }
+  .cookie-btn-tech{
+    background: transparent;
+    color: var(--ink);
+    border: 1.5px solid var(--line);
+  }
+  .cookie-btn-tech:hover{ border-color: var(--ink); background: var(--crema-dim); transform: translateY(-2px); }
+  @media (max-width: 480px){
+    .cookie-banner{ padding: 28px 24px 24px; }
+    .cookie-actions{ flex-direction:column; }
+    .cookie-btn{ width:100%; }
+  }
+</style>
 </head>
 <body>
 
-    <img src="logo.png" alt="Philia Logo" class="logo" onerror="this.style.display='none'">
-    
-    <div id="loader" class="loader"></div>
-    <p id="status">Verifica della prenotazione...</p>
-    
-    <a href="https://apps.apple.com/it/app/philiaapp/id6760352252" id="btn-ios" class="btn">Apri App Store</a>
-    
-    <a href="https://play.google.com/store/apps/details?id=com.philiaa.philiaapp&hl=it" id="btn-android" class="btn">Apri Play Store</a>
-    
-    <div id="qr-container">
-        <img id="qr-code" src="" alt="QR Code Prenotazione">
+<header>
+  <nav>
+    <div class="logo-mark">PHILIA <span>Men Hair Concept</span></div>
+    <div class="nav-links">
+      <a href="#chi-siamo">Chi siamo</a>
+      <a href="#servizi">Servizi</a>
+      <a href="#team">Il team</a>
+      <a href="#prenota">Prenota</a>
+      <a href="#dove">Dove siamo</a>
+    </div>
+    <a href="#prenota" class="nav-cta">Prenota ora</a>
+    <button class="mobile-toggle" id="mobileToggle" aria-label="Apri menu">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+</header>
+
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="mobile-drawer" id="mobileDrawer">
+  <a href="#chi-siamo">Chi siamo</a>
+  <a href="#servizi">Servizi</a>
+  <a href="#team">Il team</a>
+  <a href="#prenota">Prenota</a>
+  <a href="#dove">Dove siamo</a>
+  <a href="#prenota" class="btn btn-primary">Prenota ora</a>
+</div>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow">Casalnuovo di Napoli — Since 2022</div>
+      <h1>L'arte del taglio,<br><em>il tempo per te.</em></h1>
+      <p class="lead">Philia non è solo un barbershop: è un rituale. Consulenza, precisione e materiali scelti uno a uno, in uno spazio pensato per farti sentire a casa — anche solo per un'ora.</p>
+      <div class="hero-actions">
+        <a href="#prenota" class="btn btn-primary">Prenota il tuo posto <span class="btn-arrow">→</span></a>
+        <a href="#servizi" class="btn btn-ghost">Scopri i servizi</a>
+      </div>
+    </div>
+    <div class="hero-photo-frame">
+      <div class="arch-photo">
+        <img src="img/sedie.jpg" alt="Interno del salone Philia con poltrone Belmont e parete color cotto">
+      </div>
+      <div class="floating-tag">
+        <div class="num">4.9</div>
+        <div class="label">★ rating clienti</div>
+      </div>
+    </div>
+  </div>
+  <a href="#chi-siamo" class="hero-scroll"><span class="line"></span> Scorri</a>
+</section>
+
+<!-- ============ MARQUEE ============ -->
+<div class="strip">
+  <div class="strip-track">
+    <span>Taglio uomo</span><span>Barba & rasatura</span><span>Consulenza d'immagine</span><span>Trattamenti viso</span><span>Colore uomo</span><span>Taglio bambino</span>
+    <span>Taglio uomo</span><span>Barba & rasatura</span><span>Consulenza d'immagine</span><span>Trattamenti viso</span><span>Colore uomo</span><span>Taglio bambino</span>
+  </div>
+</div>
+
+<!-- ============ ABOUT ============ -->
+<section class="about" id="chi-siamo">
+  <div class="wrap about-grid">
+    <div class="arch-frame reveal">
+      <img src="img/prodotti.jpg" alt="Arco illuminato con espositore prodotti da barba Philia">
+    </div>
+    <div class="about-copy reveal">
+      <div class="eyebrow">La nostra filosofia</div>
+      <h2 style="font-family:var(--display); font-weight:600; font-size:clamp(2rem,3.6vw,2.8rem); margin-bottom:22px; line-height:1.1;">Philia, dal greco <em style="font-style:italic; color:var(--cotto);">affetto e cura</em>.</h2>
+      <p>Da Philia crediamo che un buon taglio nasca da un buon ascolto. Ogni percorso comincia con una <strong>consulenza vera</strong>, non una formalità: studiamo i tratti del viso, lo stile di vita e quello che vuoi raccontare di te, prima ancora di prendere in mano le forbici.</p>
+      <p>Lavoriamo solo con strumenti e prodotti professionali selezionati — dalle lame giapponesi alle linee Dandy e Immortal — in un ambiente che abbiamo costruito pensando al relax tanto quanto alla tecnica.</p>
+      <div class="stat-row">
+        <div class="stat"><div class="num">2022</div><div class="lbl">Anno di apertura</div></div>
+        <div class="stat"><div class="num">3</div><div class="lbl">Barber specializzati</div></div>
+        <div class="stat"><div class="num">100%</div><div class="lbl">Prodotti professionali</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SERVICES ============ -->
+<section class="services" id="servizi">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Listino</div>
+      <h2>Servizi pensati <em>su misura.</em></h2>
+      <p>Ogni trattamento parte da una consulenza dedicata: i prezzi sono indicativi e vengono confermati in salone in base alle tue esigenze.</p>
+    </div>
+    <div class="service-list reveal">
+      <div class="service-row">
+        <div>
+          <div class="service-name">Taglio Uomo</div>
+          <div class="service-desc">Consulenza, shampoo pre-trattamento e taglio su misura per i tuoi tratti somatici.</div>
+        </div>
+        <div class="service-time">45 min</div>
+        <div></div>
+        <div class="service-price">da 20€</div>
+      </div>
+      <div class="service-row">
+        <div>
+          <div class="service-name">Taglio + Barba</div>
+          <div class="service-desc">Il rituale completo: taglio su consulenza, rasatura tradizionale e modellatura barba.</div>
+        </div>
+        <div class="service-time">60 min</div>
+        <div></div>
+        <div class="service-price">da 30€</div>
+      </div>
+      <div class="service-row">
+        <div>
+          <div class="service-name">Rasatura Tradizionale</div>
+          <div class="service-desc">Panno caldo, rasoio a mano libera, olio pre-shave e scolpitura con olio finale.</div>
+        </div>
+        <div class="service-time">30 min</div>
+        <div></div>
+        <div class="service-price">da 15€</div>
+      </div>
+      <div class="service-row">
+        <div>
+          <div class="service-name">Trattamento Viso</div>
+          <div class="service-desc">Lavaggio con massaggio riattiva-circolazione, prestyling e prodotto finale.</div>
+        </div>
+        <div class="service-time">30 min</div>
+        <div></div>
+        <div class="service-price">da 18€</div>
+      </div>
+      <div class="service-row">
+        <div>
+          <div class="service-name">Taglio Bambino</div>
+          <div class="service-desc">Pensato per i più piccoli, fino ai 10 anni — pazienza e attenzione comprese.</div>
+        </div>
+        <div class="service-time">30 min</div>
+        <div></div>
+        <div class="service-price">da 15€</div>
+      </div>
+    </div>
+    <p class="service-note">* Listino indicativo — il prezzo definitivo viene confermato durante la consulenza in salone.</p>
+  </div>
+</section>
+
+<!-- ============ TEAM / BOOKING ============ -->
+<section class="team" id="team">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Chi ti accoglie</div>
+      <h2>Il <em>team</em> Philia.</h2>
+      <p>Tre professionisti, tre stili, un solo obiettivo: farti uscire più sicuro di come sei entrato. Scegli il tuo barber e prenota direttamente.</p>
+    </div>
+    <div class="team-grid reveal">
+      <div class="team-card">
+        <div class="team-avatar">S</div>
+        <h3>Simone Del Sole</h3>
+        <div class="team-role">Founder & Master Barber</div>
+        <p class="bio">La visione dietro Philia. Specialista in consulenza d'immagine e tagli su misura per ogni morfologia del viso.</p>
+        <a href="https://cal.com/simone-del-sole-philia-men-hair-concept-wecbwy?fbclid=PAZXh0bgNhZW0CMTEAAacmOnV1kq0X24Qxawuhl5KmIK34-bU5qV1aauye_Slp8Ak3N4CetguaW9J0Yw_aem_RZ6ST4vU5fhj1x5y3oKjFQ" target="_blank" rel="noopener" class="book-link">Prenota con Simone →</a>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar">A</div>
+        <h3>Alessandro</h3>
+        <div class="team-role">Barber</div>
+        <p class="bio">Precisione e attenzione al dettaglio, dai fade più puliti alle rasature tradizionali con rasoio a mano libera.</p>
+        <a href="https://cal.com/simone-del-sole-sotzo2" target="_blank" rel="noopener" class="book-link">Prenota con Alessandro →</a>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar">C</div>
+        <h3>Catello</h3>
+        <div class="team-role">Junior Barber — Shampoo & Barba</div>
+        <p class="bio">Si sta formando con noi ed è già un punto di riferimento per shampoo e rasatura barba con lametta, con cura e attenzione ad ogni passaggio.</p>
+        <a href="https://cal.com/simone-delsole-d4dufi" target="_blank" rel="noopener" class="book-link">Prenota con Catello →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BOOKING / APPS ============ -->
+<section class="booking" id="prenota">
+  <div class="wrap booking-inner">
+    <div class="section-head reveal">
+      <div class="eyebrow">Prenotazioni</div>
+      <h2>Il tuo posto <em>ti aspetta.</em></h2>
+      <p>Scegli il barber che preferisci e prenota online in pochi secondi — oppure scarica l'app Philia per gestire i tuoi appuntamenti sempre con te.</p>
     </div>
 
-    <div id="qr-msg">
-        <strong>PRENOTAZIONE CONFERMATA!</strong><br><br>
-        Inquadra il QR Code con il tuo smartphone per salvare l'appuntamento nell'App Philia e ricevere i promemoria.
+    <div class="booking-cards reveal">
+      <div class="booking-card">
+        <div class="who">Simone</div>
+        <div class="what">Founder & Master Barber — consulenza d'immagine e tagli su misura.</div>
+        <a href="https://cal.com/simone-del-sole-philia-men-hair-concept-wecbwy?fbclid=PAZXh0bgNhZW0CMTEAAacmOnV1kq0X24Qxawuhl5KmIK34-bU5qV1aauye_Slp8Ak3N4CetguaW9J0Yw_aem_RZ6ST4vU5fhj1x5y3oKjFQ" target="_blank" rel="noopener" class="btn">Prenota con Simone</a>
+      </div>
+      <div class="booking-card">
+        <div class="who">Alessandro</div>
+        <div class="what">Barber — fade, tagli moderni e rasature tradizionali.</div>
+        <a href="https://cal.com/simone-del-sole-sotzo2" target="_blank" rel="noopener" class="btn">Prenota con Alessandro</a>
+      </div>
+      <div class="booking-card">
+        <div class="who">Catello</div>
+        <div class="what">Junior Barber — shampoo e barba con lametta.</div>
+        <a href="https://cal.com/simone-delsole-d4dufi" target="_blank" rel="noopener" class="btn">Prenota con Catello</a>
+      </div>
     </div>
 
-    <script>
-        const params = window.location.search;
-        const currentUrl = window.location.href;
-        const appLink = "philia://conferma" + params;
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    <div class="apps-row reveal">
+      <div class="apps-text">
+        <h3>L'app Philia, sempre con te</h3>
+        <p>Prenotazioni, promemoria e novità del salone direttamente sul tuo smartphone.</p>
+      </div>
+      <div class="app-buttons">
+        <a href="https://apps.apple.com/it/app/philiaapp/id6760352252" target="_blank" rel="noopener" class="app-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.04c-.02-2.06 1.69-3.05 1.76-3.1-.96-1.4-2.46-1.6-3-1.62-1.28-.13-2.5.74-3.15.74-.66 0-1.66-.72-2.72-.7-1.4.02-2.7.81-3.42 2.06-1.46 2.53-.37 6.27 1.04 8.32.69 1 1.51 2.13 2.59 2.09 1.04-.04 1.43-.67 2.69-.67 1.25 0 1.61.67 2.71.65 1.12-.02 1.83-1.02 2.51-2.02.79-1.15 1.11-2.27 1.13-2.33-.02-.01-2.16-.83-2.14-3.42zM14.91 5.6c.56-.68.94-1.62.84-2.56-.81.03-1.79.55-2.37 1.22-.52.6-.98 1.56-.86 2.48.9.07 1.82-.46 2.39-1.14z"/></svg>
+          App Store
+        </a>
+        <a href="https://play.google.com/store/apps/details?id=com.philiaa.philiaapp&pcampaignid=web_share" target="_blank" rel="noopener" class="app-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.6 2.59c-.34.18-.56.5-.6.93v17c.04.43.26.75.6.93l9.84-9.43L3.6 2.59zm10.86 9.41 2.46-2.35-9.86-5.6 7.4 7.95zm0 1.99-7.4 7.96 9.86-5.6-2.46-2.36zm.94-1-.94 1 4.86 2.77c.5.27.96.07 1.06-.5.06-.3-.04-.62-.27-.85l-4.71-2.42zm-1.88-1.98.94-1 4.71-2.42c.23-.23.33-.55.27-.85-.1-.57-.56-.77-1.06-.5l-4.86 2.77z"/></svg>
+          Google Play
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
 
-        if (isMobile) {
-            // Prova ad aprire l'app
-            window.location.href = appLink;
-            
-            // Se dopo 3 secondi non si apre, mostra i tasti store
-            setTimeout(() => {
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('status').innerHTML = "PRENOTAZIONE CONFERMATA!<br>Scarica l'app per gestire l'appuntamento:";
-                document.getElementById('btn-ios').style.display = 'block';
-                document.getElementById('btn-android').style.display = 'block';
-            }, 3000);
-        } else {
-            // Logica per PC: Genera QR Code
-            document.getElementById('loader').style.display = 'none';
-            document.getElementById('status').style.display = 'none';
-            
-            const qrImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(currentUrl);
-            document.getElementById('qr-code').src = qrImageUrl;
-            
-            document.getElementById('qr-container').style.display = 'block';
-            document.getElementById('qr-msg').style.display = 'block';
-        }
-    </script>
+<!-- ============ GALLERY ============ -->
+<section class="gallery">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Lo spazio</div>
+      <h2>Dentro <em>Philia.</em></h2>
+    </div>
+    <div class="gallery-grid reveal">
+      <figure class="g1"><img src="img/strumenti.jpg" alt="Strumenti professionali da barbiere: forbici, rasoio e pettini"></figure>
+      <figure class="g2"><img src="img/prodotti.jpg" alt="Espositore prodotti da barba sulla parete color cotto"></figure>
+      <figure class="g3"><img src="img/sedie.jpg" alt="Poltrone Belmont con cuscini gialli"></figure>
+      <figure class="g4"><img src="img/insegna.jpg" alt="Insegna luminosa Philia Men Hair Concept"></figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SOCIAL ============ -->
+<section class="social">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div class="eyebrow">Restiamo in contatto</div>
+      <h2>Seguici <em>ovunque.</em></h2>
+      <p style="color:var(--crema-dim);">Dietro le quinte, nuovi tagli e tutto il resto, sui nostri canali.</p>
+    </div>
+    <div class="social-grid reveal">
+      <div class="social-card">
+        <div class="social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg></div>
+        <h3>Instagram</h3>
+        <p>Foto dei tagli, lavorazioni e momenti di vita in salone.</p>
+        <a href="https://www.instagram.com/philiamenhairconcept" target="_blank" rel="noopener" class="book-link">@philiamenhairconcept →</a>
+      </div>
+      <div class="social-card">
+        <div class="social-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.6 5.82a4.28 4.28 0 0 1-1-2.82h-3.45v13.4a2.59 2.59 0 1 1-2.59-2.6c.27 0 .53.05.78.12V10.4a5.97 5.97 0 0 0-.78-.05A6 6 0 1 0 15.6 16V8.9a7.7 7.7 0 0 0 4.5 1.45V6.9a4.27 4.27 0 0 1-3.5-1.08z"/></svg></div>
+        <h3>TikTok</h3>
+        <p>Trasformazioni, dietro le quinte e qualche risata in salone.</p>
+        <a href="https://www.tiktok.com/@philiamenhairconcept?_r=1&_t=ZN-97VKFS1bShK" target="_blank" rel="noopener" class="book-link">@philiamenhairconcept →</a>
+      </div>
+      <div class="social-card">
+        <div class="social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div>
+        <h3>Google</h3>
+        <p>Leggi le recensioni dei nostri clienti o lasciaci la tua.</p>
+        <a href="https://share.google/upoaKyJV7QgH5tshL" target="_blank" rel="noopener" class="book-link">Vedi il profilo →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ VISIT ============ -->
+<section class="visit" id="dove">
+  <div class="wrap visit-grid">
+    <div class="visit-photo reveal">
+      <img src="img/interno.jpg" alt="Sala d'attesa e bancone Philia Men Hair Concept">
+    </div>
+    <div class="visit-info reveal">
+      <div class="eyebrow">Vieni a trovarci</div>
+      <h2 style="font-family:var(--display); font-weight:600; font-size:clamp(2rem,3.6vw,2.8rem); margin-bottom:8px; line-height:1.1;">Ti aspettiamo <em style="font-style:italic; color:var(--cotto);">in salone.</em></h2>
+      <dl>
+        <dt>Indirizzo</dt>
+        <dd>Via Marra, 411 — 80041 Boscoreale (NA)</dd>
+        <dt>Orari</dt>
+        <dd>
+          Mar · Mer · Gio · Ven&nbsp;&nbsp;09:00–13:00 / 15:30–20:30<br>
+          Sab&nbsp;&nbsp;09:00–20:30<br>
+          Lun · Dom&nbsp;&nbsp;Chiuso
+        </dd>
+        <dt>Prenotazioni</dt>
+        <dd>Online con Simone, Alessandro o Catello, oppure dall'app Philia</dd>
+        <dt>Social</dt>
+        <dd>Instagram e TikTok @philiamenhairconcept</dd>
+      </dl>
+      <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:32px;">
+        <a href="#prenota" class="btn btn-primary">Prenota il tuo appuntamento <span class="btn-arrow">→</span></a>
+        <a href="https://maps.app.goo.gl/ZWTvQzHc4FGoc1sGA" target="_blank" rel="noopener" class="btn btn-ghost">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Apri in Maps
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="map-embed reveal">
+      <iframe
+        src="https://maps.google.com/maps?q=40.7893693,14.5499804&hl=it&z=16&output=embed"
+        width="100%" height="420" style="border:0;" allowfullscreen="" loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade"
+        title="Mappa Philia Men Hair Concept — Via Marra 411, Boscoreale">
+      </iframe>
+      <div class="map-card">
+        <div class="map-card-top">
+          <div>
+            <h4>Philia Men Hair Concept</h4>
+            <p>Via Marra, 411, 80041<br>Boscoreale NA, Italia</p>
+          </div>
+          <div class="map-card-actions">
+            <a href="https://maps.app.goo.gl/ZWTvQzHc4FGoc1sGA" target="_blank" rel="noopener" aria-label="Apri in Google Maps" title="Apri in Google Maps">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+            <a href="https://www.google.com/maps/dir/?api=1&destination=40.7893693,14.5499804" target="_blank" rel="noopener" aria-label="Ottieni indicazioni" title="Ottieni indicazioni">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+            </a>
+          </div>
+        </div>
+        <div class="map-card-rating">
+          <span class="stars">★★★★★</span>
+          <span class="rating-text">Vieni a trovarci</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-top">
+      <div>
+        <div class="footer-logo">PHILIA<span>MEN HAIR CONCEPT</span></div>
+        <p style="margin-top:18px; font-size:0.88rem; color:var(--crema-dim);">Via Marra, 411<br>80041 Boscoreale (NA)</p>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col">
+          <h4>Naviga</h4>
+          <a href="#chi-siamo">Chi siamo</a>
+          <a href="#servizi">Servizi</a>
+          <a href="#team">Il team</a>
+          <a href="#dove">Dove siamo</a>
+        </div>
+        <div class="footer-col">
+          <h4>Prenota</h4>
+          <a href="https://cal.com/simone-del-sole-philia-men-hair-concept-wecbwy?fbclid=PAZXh0bgNhZW0CMTEAAacmOnV1kq0X24Qxawuhl5KmIK34-bU5qV1aauye_Slp8Ak3N4CetguaW9J0Yw_aem_RZ6ST4vU5fhj1x5y3oKjFQ" target="_blank" rel="noopener">Con Simone</a>
+          <a href="https://cal.com/simone-del-sole-sotzo2" target="_blank" rel="noopener">Con Alessandro</a>
+          <a href="https://cal.com/simone-delsole-d4dufi" target="_blank" rel="noopener">Con Catello</a>
+        </div>
+        <div class="footer-col">
+          <h4>App & Social</h4>
+          <a href="https://apps.apple.com/it/app/philiaapp/id6760352252" target="_blank" rel="noopener">App iOS</a>
+          <a href="https://play.google.com/store/apps/details?id=com.philiaa.philiaapp&pcampaignid=web_share" target="_blank" rel="noopener">App Android</a>
+          <a href="https://www.instagram.com/philiamenhairconcept" target="_blank" rel="noopener">Instagram</a>
+          <a href="https://www.tiktok.com/@philiamenhairconcept?_r=1&_t=ZN-97VKFS1bShK" target="_blank" rel="noopener">TikTok</a>
+          <a href="https://share.google/upoaKyJV7QgH5tshL" target="_blank" rel="noopener">Google</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Philia Men Hair Concept. Tutti i diritti riservati.</span>
+      <span>Via Marra, 411, 80041 Boscoreale (NA) — P.IVA 06291180658 — +39 347 880 9570</span>
+      <a href="privacy-cookie.html" style="text-decoration:underline; text-decoration-color:var(--senape);">Privacy & Cookie Policy</a>
+    </div>
+  </div>
+</footer>
+
+<a href="https://wa.me/393478809570" target="_blank" rel="noopener" class="whatsapp-float" aria-label="Scrivici su WhatsApp">
+  <span class="wa-pulse"></span>
+  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.2-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-1.6-.8-2.7-1.4-3.8-3.2-.3-.5.3-.4.8-1.4.1-.2 0-.4-.1-.5-.1-.2-.6-1.5-.8-2-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.2-.9.9-.9 2.2 0 1.3 1 2.6 1.1 2.8.1.2 1.9 3 4.6 4.1 2.3.9 2.8.7 3.3.7.5-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.1-.2-.2-.5-.3zM12 2C6.5 2 2 6.5 2 12c0 1.9.5 3.7 1.5 5.2L2 22l4.9-1.4C8.4 21.5 10.1 22 12 22c5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3.3.9.9-3.2-.2-.3C4 14.8 3.6 13.4 3.6 12 3.6 7.4 7.4 3.6 12 3.6S20.4 7.4 20.4 12 16.6 20 12 20z"/></svg>
+  <span class="wa-label">Scrivici su WhatsApp</span>
+</a>
+
+<div class="cookie-overlay" id="cookieOverlay">
+  <div class="cookie-banner">
+    <div class="cookie-tag"><span class="emoji">🍪</span> Philia Men Hair Concept · Cookie Notice</div>
+    <h3>Usiamo solo <em>i cookie necessari</em></h3>
+    <p>Questo sito usa esclusivamente cookie tecnici necessari al funzionamento. <strong>Non raccogliamo dati personali</strong>, non utilizziamo cookie di profilazione o tracciamento. Per saperne di più leggi la nostra <a href="privacy-cookie.html#cookie" class="privacy-link">Privacy Policy</a>.</p>
+    <div class="cookie-actions">
+      <button class="cookie-btn cookie-btn-accept" id="cookieAccept">✓ Accetta e chiudi</button>
+      <button class="cookie-btn cookie-btn-tech" id="cookieTech">Solo tecnici</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // mobile drawer
+  const toggle = document.getElementById('mobileToggle');
+  const drawer = document.getElementById('mobileDrawer');
+  const overlay = document.getElementById('drawerOverlay');
+  function closeDrawer(){ drawer.classList.remove('open'); overlay.classList.remove('open'); }
+  toggle.addEventListener('click', () => {
+    drawer.classList.toggle('open');
+    overlay.classList.toggle('open');
+  });
+  overlay.addEventListener('click', closeDrawer);
+  document.querySelectorAll('.mobile-drawer a').forEach(a => a.addEventListener('click', closeDrawer));
+
+  // reveal on scroll
+  const revealEls = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  revealEls.forEach(el => io.observe(el));
+
+  // header shrink/blur enhancement on scroll
+  const header = document.querySelector('header');
+  window.addEventListener('scroll', () => {
+    if(window.scrollY > 40){ header.style.boxShadow = '0 4px 24px rgba(26,20,16,0.06)'; }
+    else { header.style.boxShadow = 'none'; }
+  });
+
+  // cookie banner
+  const cookieOverlay = document.getElementById('cookieOverlay');
+  const cookieAccept = document.getElementById('cookieAccept');
+  const cookieTech = document.getElementById('cookieTech');
+  const COOKIE_KEY = 'philia_cookie_choice';
+
+  function getCookieChoice(){
+    try { return localStorage.getItem(COOKIE_KEY); } catch(e){ return null; }
+  }
+  function setCookieChoice(val){
+    try { localStorage.setItem(COOKIE_KEY, val); } catch(e){}
+  }
+  function showCookieBanner(){
+    if(cookieOverlay) cookieOverlay.classList.add('show');
+  }
+  function hideCookieBanner(){
+    if(cookieOverlay) cookieOverlay.classList.remove('show');
+  }
+
+  if(!getCookieChoice()){
+    setTimeout(showCookieBanner, 600);
+  }
+  if(cookieAccept) cookieAccept.addEventListener('click', () => { setCookieChoice('accepted'); hideCookieBanner(); });
+  if(cookieTech) cookieTech.addEventListener('click', () => { setCookieChoice('technical-only'); hideCookieBanner(); });
+</script>
+
 </body>
 </html>
